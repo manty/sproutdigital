@@ -1,5 +1,5 @@
 # Gitpod Configuration for Geekout Vegas 2026
-# Prebuild handles all dependencies - this just configures ports
+# Prebuild handles all dependencies - cached for all attendees
 
 image: gitpod/workspace-full:latest
 
@@ -7,9 +7,22 @@ image: gitpod/workspace-full:latest
 tasks:
   - name: Ready
     init: |
+      # Install npm dependencies
       npm install
+
+      # Install Playwright browser
       npx playwright install chromium
+
+      # Install Claude Code CLI
       npm install -g @anthropic-ai/claude-code
+
+      # Pre-install Claude Code plugins (marketplace + frontend-design)
+      mkdir -p ~/.claude/plugins/marketplaces
+      git clone https://github.com/anthropics/claude-code-plugins.git ~/.claude/plugins/marketplaces/claude-code-plugins || true
+      claude plugin install frontend-design@claude-code-plugins || true
+
+      echo "Prebuild complete!"
+
     command: |
       echo ""
       echo "=========================================="

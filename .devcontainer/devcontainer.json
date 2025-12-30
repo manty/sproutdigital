@@ -59,6 +59,6 @@
     "onAutoForward": "notify"
   },
 
-  "postCreateCommand": "npm install && npx playwright install chromium",
-  "postStartCommand": "echo '✅ Ready! Run your app and ports will auto-forward.'"
+  "postCreateCommand": "npm install && npx playwright install chromium && mkdir -p ~/.claude/plugins/marketplaces && git clone https://github.com/anthropics/claude-code-plugins.git ~/.claude/plugins/marketplaces/claude-code-plugins || true",
+  "postStartCommand": "echo '✅ Ready! Type claude to start.'"
 }
