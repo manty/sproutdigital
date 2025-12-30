@@ -7,8 +7,8 @@
     "start": "npx ts-node cloner.ts",
     "clone": "npx ts-node cloner.ts",
     "dev": "nodemon --exec ts-node cloner.ts",
-    "serve": "npx browser-sync start --server cloned-pages --port 3000 --no-open",
-    "welcome": "./welcome.sh",
+    "serve": "npx http-server cloned-pages -p 3000 -c-1",
+    "welcome": "npx http-server -p 3000 -c-1",
     "check": "./welcome.sh"
   },
   "keywords": ["workshop", "landing-page", "cloner", "gemini", "claude-code"],
@@ -30,7 +30,7 @@
     "ora": "^5.4.1",
     "jsdom": "^25.0.1",
     "fs-extra": "^11.2.0",
-    "browser-sync": "^3.0.3"
+    "http-server": "^14.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

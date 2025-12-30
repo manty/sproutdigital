@@ -18,31 +18,38 @@ github:
 image: gitpod/workspace-full:latest
 
 tasks:
-  - name: Welcome
-    # INIT: Runs during prebuild - results are cached!
+  # Task 1: Welcome server - serves the HTML welcome page
+  - name: Welcome Page
     init: |
-      echo "🔧 Installing dependencies (this is cached in prebuild)..."
+      echo "Installing dependencies..."
       npm install
-      echo "🎭 Installing Playwright Chromium..."
+      echo "Installing Playwright..."
       npx playwright install chromium
-      echo "📦 Installing Claude Code CLI..."
+      echo "Installing Claude Code..."
       npm install -g @anthropic-ai/claude-code
-      echo "✅ Prebuild complete!"
-
-    # COMMAND: Runs every time workspace starts - shows welcome screen
+      echo "Prebuild complete!"
     command: |
-      chmod +x welcome.sh
-      clear
-      ./welcome.sh
-      exec bash
+      echo "Starting welcome server..."
+      npx http-server -p 3000 -c-1 --silent &
+      sleep 2
+      gp preview $(gp url 3000)/welcome.html
+      echo ""
+      echo "=============================================="
+      echo "  WELCOME TO GEEKOUT VEGAS 2026!"
+      echo "  Check the BROWSER PREVIEW for instructions"
+      echo "=============================================="
+      echo ""
+      echo "Quick Start:"
+      echo "  1. export ANTHROPIC_API_KEY=your_key"
+      echo "  2. export GEMINI_API_KEY=your_key"
+      echo "  3. Type: claude"
+      echo ""
 
 ports:
   - port: 3000
     onOpen: open-preview
     visibility: public
-    name: Landing Page Preview
+    name: Welcome Page
 
-# Don't auto-install Claude extension - it hijacks the UI
-# Workshop uses 'claude' CLI instead
 vscode:
   extensions: []

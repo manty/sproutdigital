@@ -12,8 +12,9 @@ screenshots/
 .env
 .env.local
 
-# IDE
-.vscode/
+# IDE (but keep settings.json for workspace config)
+.vscode/*
+!.vscode/settings.json
 .idea/
 
 # OS files

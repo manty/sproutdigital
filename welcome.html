@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEEKOUT VEGAS 2026</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .ascii-art {
+            font-size: 10px;
+            line-height: 1.1;
+            color: #e94560;
+            text-align: center;
+            margin-bottom: 10px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .vegas {
+            color: #00d9ff;
+            font-size: 8px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            margin: 20px 0;
+            color: #fff;
+            text-shadow: 0 0 20px #e94560;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #00d9ff;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .divider {
+            border: none;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #e94560, transparent);
+            margin: 25px 0;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(233, 69, 96, 0.3);
+        }
+
+        .section h2 {
+            color: #e94560;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(0, 217, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .step-number {
+            background: #e94560;
+            color: #fff;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .step-content h3 {
+            color: #00d9ff;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .step-content p {
+            color: #ccc;
+            font-size: 13px;
+        }
+
+        code {
+            background: #000;
+            color: #0f0;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .code-block {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .highlight {
+            color: #ffcc00;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .footer a {
+            color: #e94560;
+            text-decoration: none;
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-ok {
+            color: #0f0;
+        }
+
+        .status-pending {
+            color: #ffcc00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <pre class="ascii-art">
+    ██████╗ ███████╗███████╗██╗  ██╗ ██████╗ ██╗   ██╗████████╗
+   ██╔════╝ ██╔════╝██╔════╝██║ ██╔╝██╔═══██╗██║   ██║╚══██╔══╝
+   ██║  ███╗█████╗  █████╗  █████╔╝ ██║   ██║██║   ██║   ██║
+   ██║   ██║██╔══╝  ██╔══╝  ██╔═██╗ ██║   ██║██║   ██║   ██║
+   ╚██████╔╝███████╗███████╗██║  ██╗╚██████╔╝╚██████╔╝   ██║
+    ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝    ╚═╝
+        </pre>
+        <pre class="ascii-art vegas">
+   ██╗   ██╗███████╗ ██████╗  █████╗ ███████╗    ██████╗  ██████╗ ██████╗  ██████╗
+   ██║   ██║██╔════╝██╔════╝ ██╔══██╗██╔════╝    ╚════██╗██╔═████╗╚════██╗██╔════╝
+   ██║   ██║█████╗  ██║  ███╗███████║███████╗     █████╔╝██║██╔██║ █████╔╝███████╗
+   ╚██╗ ██╔╝██╔══╝  ██║   ██║██╔══██║╚════██║    ██╔═══╝ ████╔╝██║██╔═══╝ ██╔═══██╗
+    ╚████╔╝ ███████╗╚██████╔╝██║  ██║███████║    ███████╗╚██████╔╝███████╗╚██████╔╝
+     ╚═══╝  ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝    ╚══════╝ ╚═════╝ ╚══════╝ ╚═════╝
+        </pre>
+
+        <h1>LANDING PAGE CLONER WORKSHOP</h1>
+        <p class="subtitle">by <span class="highlight">Samar Hussain</span></p>
+
+        <hr class="divider">
+
+        <div class="section">
+            <h2>🚀 QUICK START</h2>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Set Your API Keys</h3>
+                    <p>Click on the <strong>TERMINAL</strong> tab below, then run:</p>
+                    <div class="code-block">
+export ANTHROPIC_API_KEY=your_key_here
+export GEMINI_API_KEY=your_key_here
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Start Claude Code</h3>
+                    <p>In the terminal, type:</p>
+                    <div class="code-block">claude</div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Clone Your First Page!</h3>
+                    <p>Ask Claude:</p>
+                    <div class="code-block">"Clone the landing page at https://stripe.com"</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📦 PRE-INSTALLED</h2>
+            <div class="status-grid">
+                <div class="status-item"><span class="status-ok">✓</span> Claude Code CLI</div>
+                <div class="status-item"><span class="status-ok">✓</span> Node.js 20</div>
+                <div class="status-item"><span class="status-ok">✓</span> Playwright + Chromium</div>
+                <div class="status-item"><span class="status-ok">✓</span> Google Generative AI</div>
+                <div class="status-item"><span class="status-ok">✓</span> TypeScript</div>
+                <div class="status-item"><span class="status-ok">✓</span> 30+ npm packages</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔑 GET YOUR API KEYS</h2>
+            <div class="step">
+                <div class="step-content" style="width: 100%;">
+                    <p><strong>Anthropic (Claude):</strong> <a href="https://console.anthropic.com" target="_blank" style="color: #00d9ff;">console.anthropic.com</a></p>
+                    <p style="margin-top: 8px;"><strong>Google (Gemini):</strong> <a href="https://aistudio.google.com" target="_blank" style="color: #00d9ff;">aistudio.google.com</a></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 WORKSHOP AGENDA</h2>
+            <div class="step">
+                <div class="step-content" style="width: 100%;">
+                    <p><strong>[01]</strong> Introduction to Claude Code</p>
+                    <p><strong>[02]</strong> Building the Cloner with Playwright</p>
+                    <p><strong>[03]</strong> AI Variations with Gemini Flash</p>
+                    <p><strong>[04]</strong> Deploy & Test Your Clones</p>
+                </div>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <p class="footer">
+            <span class="blink">▶</span> Click <strong>TERMINAL</strong> below to get started!<br><br>
+            Workshop by <a href="https://github.com/samarhussain90">Samar Hussain</a>
+        </p>
+    </div>
+</body>
+</html>
