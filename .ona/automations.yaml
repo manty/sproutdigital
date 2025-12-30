@@ -1,6 +1,9 @@
 # Ona Automations Configuration
 # For Geekout Vegas 2026 Workshop
 # Docs: https://ona.com/docs/ona/configuration/tasks-and-services/basic-configuration
+#
+# NOTE: Only 'services' and 'tasks' are valid root-level fields
+# Ports are configured via CLI: gitpod environment port open 3000
 
 services:
   welcome-server:
@@ -31,6 +34,17 @@ tasks:
     description: Install Claude Code CLI globally
     command: npm install -g @anthropic-ai/claude-code
 
+  open-ports:
+    name: Open Public Ports
+    description: Make ports publicly accessible
+    dependsOn:
+      - install-deps
+    command: |
+      gitpod environment port open 3000 --name "Welcome Page" || true
+      gitpod environment port open 3001 --name "Dev Server" || true
+      gitpod environment port open 5173 --name "Vite" || true
+      gitpod environment port open 8080 --name "HTTP Server" || true
+
   show-welcome:
     name: Show Welcome
     description: Display welcome message in terminal
@@ -38,6 +52,7 @@ tasks:
       - install-deps
       - install-playwright
       - install-claude
+      - open-ports
     command: |
       echo ""
       echo "=============================================="
@@ -49,29 +64,3 @@ tasks:
       echo "  2. export GEMINI_API_KEY=your_key"
       echo "  3. Type: claude"
       echo ""
-      echo "Open http://localhost:3000/welcome.html for instructions"
-      echo ""
-
-# Port configuration with public access
-ports:
-  - port: 3000
-    admission: "ADMISSION_LEVEL_EVERYONE"
-    name: "Welcome Page"
-  - port: 3001
-    admission: "ADMISSION_LEVEL_EVERYONE"
-    name: "Dev Server"
-  - port: 4000
-    admission: "ADMISSION_LEVEL_EVERYONE"
-    name: "API Server"
-  - port: 5000
-    admission: "ADMISSION_LEVEL_EVERYONE"
-    name: "Backend"
-  - port: 5173
-    admission: "ADMISSION_LEVEL_EVERYONE"
-    name: "Vite"
-  - port: 8000
-    admission: "ADMISSION_LEVEL_EVERYONE"
-    name: "Python"
-  - port: 8080
-    admission: "ADMISSION_LEVEL_EVERYONE"
-    name: "HTTP Server"
