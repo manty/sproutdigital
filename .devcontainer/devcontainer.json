@@ -14,7 +14,8 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash"
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.shellIntegration.enabled": true
       },
       "extensions": [
         "anthropic.claude-dev",
@@ -30,5 +31,6 @@
       "visibility": "public"
     }
   },
-  "postCreateCommand": "npm install && sudo chown -R vscode node_modules"
+  "postCreateCommand": "npm install && sudo chown -R vscode node_modules && chmod +x welcome.sh",
+  "postStartCommand": "bash welcome.sh"
 }
