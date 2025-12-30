@@ -1,9 +1,11 @@
 {
   "name": "cloner-workshop",
   "version": "1.0.0",
+  "scripts": {
+    "start": "ts-node cloner.ts"
+  },
   "dependencies": {
     "@google/generative-ai": "latest",
-    "@anthropic-ai/claude-code": "latest",
     "playwright": "latest",
     "cheerio": "latest",
     "got-scraping": "latest",
@@ -27,9 +29,6 @@
     "morgan": "latest",
     "helmet": "latest",
     "cors": "latest",
-    "fs-extra": "latest",
-    "http-proxy-middleware": "latest",
-    "node-cron": "latest",
-    "faker": "latest"
+    "fs-extra": "latest"
   }
 }
