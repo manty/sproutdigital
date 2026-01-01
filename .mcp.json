@@ -5,6 +5,11 @@
       "args": ["-y", "@playwright/mcp@latest"],
       "env": {}
     },
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "env": {}
+    },
     "fetch": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-fetch"],
