@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Editor - SproutDigital</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+
+    .sidebar {
+      width: 320px;
+      background: #1a1a2e;
+      height: 100vh;
+      overflow-y: auto;
+      position: fixed;
+      left: 0;
+      top: 0;
+    }
+
+    .preview-frame {
+      margin-left: 320px;
+      height: 100vh;
+      background: #f5f5f5;
+    }
+
+    .tab-btn {
+      padding: 12px 16px;
+      color: #888;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      color: #00ff88;
+      border-bottom-color: #00ff88;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .input-field {
+      background: #0a0a1a;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      width: 100%;
+      font-size: 14px;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: #00ff88;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #00ff88, #00ccff);
+      color: #000;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.02);
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+    }
+
+    .btn-secondary {
+      background: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: #444;
+    }
+
+    .link-item, .image-item, .pixel-item {
+      background: #0a0a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .link-item:hover, .image-item:hover {
+      border-color: #00ff88;
+    }
+
+    .edit-highlight {
+      outline: 2px dashed #00ff88 !important;
+      outline-offset: 2px;
+      cursor: pointer;
+    }
+
+    .editing {
+      outline: 2px solid #ff00ff !important;
+      outline-offset: 2px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #0a0a1a; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #00ff88;
+      color: #000;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .preview-controls {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <!-- Header -->
+    <div class="p-4 border-b border-gray-700">
+      <h1 class="text-xl font-bold text-green-400">Page Editor</h1>
+      <p class="text-gray-400 text-sm mt-1" id="cloneName">Loading...</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-gray-700">
+      <button class="tab-btn active" data-tab="links">Links</button>
+      <button class="tab-btn" data-tab="images">Images</button>
+      <button class="tab-btn" data-tab="pixels">Pixels</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Links Panel -->
+    <div class="panel active p-4" id="panel-links">
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Global Link Override</label>
+        <input type="url" id="globalLink" class="input-field" placeholder="https://your-destination.com">
+        <button id="applyGlobalLink" class="btn-primary w-full mt-2">Apply to All Links</button>
+      </div>
+
+      <div class="border-t border-gray-700 pt-4 mt-4">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">Individual Links</h3>
+        <div id="linksList" class="space-y-2">
+          <!-- Links will be populated here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Images Panel -->
+    <div class="panel p-4" id="panel-images">
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Upload Image</label>
+        <input type="file" id="imageUpload" accept="image/*" class="hidden">
+        <button id="uploadBtn" class="btn-secondary w-full">Choose Image to Upload</button>
+      </div>
+
+      <div class="border-t border-gray-700 pt-4 mt-4">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">Page Images</h3>
+        <p class="text-xs text-gray-500 mb-3">Click an image in the preview to replace it</p>
+        <div id="imagesList" class="space-y-2">
+          <!-- Images will be populated here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Pixels Panel -->
+    <div class="panel p-4" id="panel-pixels">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">Tracking Pixels</h3>
+
+      <!-- Facebook Pixel -->
+      <div class="pixel-item">
+        <label class="flex items-center gap-2 mb-2">
+          <input type="checkbox" id="fbPixelEnabled" class="w-4 h-4">
+          <span class="font-medium">Facebook Pixel</span>
+        </label>
+        <input type="text" id="fbPixelId" class="input-field" placeholder="Pixel ID (e.g., 123456789)">
+      </div>
+
+      <!-- Google Analytics -->
+      <div class="pixel-item">
+        <label class="flex items-center gap-2 mb-2">
+          <input type="checkbox" id="gaEnabled" class="w-4 h-4">
+          <span class="font-medium">Google Analytics</span>
+        </label>
+        <input type="text" id="gaId" class="input-field" placeholder="GA4 ID (e.g., G-XXXXXXX)">
+      </div>
+
+      <!-- TikTok Pixel -->
+      <div class="pixel-item">
+        <label class="flex items-center gap-2 mb-2">
+          <input type="checkbox" id="ttPixelEnabled" class="w-4 h-4">
+          <span class="font-medium">TikTok Pixel</span>
+        </label>
+        <input type="text" id="ttPixelId" class="input-field" placeholder="Pixel ID">
+      </div>
+
+      <!-- Custom Code -->
+      <div class="pixel-item">
+        <label class="block mb-2">
+          <span class="font-medium">Custom Head Code</span>
+        </label>
+        <textarea id="customHeadCode" class="input-field h-24" placeholder="<script>...</script>"></textarea>
+      </div>
+
+      <div class="pixel-item">
+        <label class="block mb-2">
+          <span class="font-medium">Custom Body Code</span>
+        </label>
+        <textarea id="customBodyCode" class="input-field h-24" placeholder="Tracking scripts, etc."></textarea>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="panel p-4" id="panel-settings">
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Page Title</label>
+        <input type="text" id="pageTitle" class="input-field" placeholder="Page title">
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Meta Description</label>
+        <textarea id="metaDescription" class="input-field h-20" placeholder="SEO description"></textarea>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Favicon URL</label>
+        <input type="url" id="faviconUrl" class="input-field" placeholder="https://...">
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="p-4 border-t border-gray-700 mt-auto">
+      <button id="saveBtn" class="btn-primary w-full mb-2">Save Changes</button>
+      <button id="previewBtn" class="btn-secondary w-full mb-2">Open Preview</button>
+      <button id="publishBtn" class="btn-primary w-full" style="background: linear-gradient(135deg, #ff00ff, #00ccff);">Publish Page</button>
+    </div>
+  </div>
+
+  <!-- Preview Frame -->
+  <div class="preview-frame">
+    <div class="preview-controls">
+      <button id="editModeBtn" class="btn-secondary text-sm">Edit Mode: OFF</button>
+      <select id="deviceSelect" class="input-field w-auto">
+        <option value="desktop">Desktop</option>
+        <option value="tablet">Tablet</option>
+        <option value="mobile">Mobile</option>
+      </select>
+    </div>
+    <iframe id="previewIframe" class="w-full h-full border-0"></iframe>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast">Saved!</div>
+
+  <!-- Image Replace Modal -->
+  <div id="imageModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+      <h3 class="text-lg font-bold mb-4">Replace Image</h3>
+      <div class="mb-4">
+        <img id="modalCurrentImage" class="w-full h-40 object-contain bg-gray-900 rounded mb-4">
+        <input type="file" id="modalImageUpload" accept="image/*" class="hidden">
+        <button id="modalUploadBtn" class="btn-secondary w-full mb-2">Upload New Image</button>
+        <input type="url" id="modalImageUrl" class="input-field" placeholder="Or paste image URL">
+      </div>
+      <div class="flex gap-2">
+        <button id="modalCancel" class="btn-secondary flex-1">Cancel</button>
+        <button id="modalApply" class="btn-primary flex-1">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="editor.js"></script>
+</body>
+</html>

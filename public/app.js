@@ -11,15 +11,55 @@ const errorSection = document.getElementById('errorSection');
 const outputPath = document.getElementById('outputPath');
 const assetsInfo = document.getElementById('assetsInfo');
 const openCloneLink = document.getElementById('openCloneLink');
+const editCloneLink = document.getElementById('editCloneLink');
 const cloneAnotherBtn = document.getElementById('cloneAnotherBtn');
 const errorMessage = document.getElementById('errorMessage');
 const tryAgainBtn = document.getElementById('tryAgainBtn');
 const particlesContainer = document.getElementById('particles');
+const clonesList = document.getElementById('clonesList');
 
 // State
 let currentJobId = null;
+let currentCloneId = null;
 let ws = null;
 let completedSteps = new Set();
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+  loadClonesList();
+});
+
+// Load list of cloned pages
+async function loadClonesList() {
+  try {
+    const response = await fetch('/api/clones');
+    const clones = await response.json();
+
+    if (clones.length === 0) {
+      clonesList.innerHTML = '<p class="text-white/50 col-span-full text-center py-8">No cloned pages yet. Clone your first page above!</p>';
+      return;
+    }
+
+    clonesList.innerHTML = clones.map(clone => `
+      <div class="bg-black/40 border border-white/10 rounded-xl p-4 hover:border-cyan-500/50 transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-cyan-300 truncate">${clone.id}</h3>
+          <span class="text-xs text-white/40">${new Date(clone.createdAt).toLocaleDateString()}</span>
+        </div>
+        <div class="flex gap-2">
+          <a href="${clone.previewUrl}" target="_blank" class="flex-1 text-center bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg text-sm transition-all">
+            Preview
+          </a>
+          <a href="${clone.editUrl}" class="flex-1 text-center bg-gradient-to-r from-pink-500 to-cyan-500 px-3 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90">
+            Edit
+          </a>
+        </div>
+      </div>
+    `).join('');
+  } catch (error) {
+    clonesList.innerHTML = '<p class="text-red-400 col-span-full text-center py-8">Error loading clones</p>';
+  }
+}
 
 // Initialize particles
 function createParticles() {
@@ -205,13 +245,20 @@ function handleComplete(result) {
     stepEl.classList.add('completed');
   });
 
+  // Store current clone ID for editing
+  currentCloneId = result.folderName;
+
   // Show result section
   resultSection.classList.remove('hidden');
   outputPath.textContent = result.folderName;
   assetsInfo.textContent = `${result.assetsDownloaded} downloaded, ${result.assetsFailed} failed`;
   openCloneLink.href = result.openUrl;
+  editCloneLink.href = `/editor.html?id=${result.folderName}`;
 
   addLog('pipeline', 'Clone completed successfully!');
+
+  // Refresh clones list
+  loadClonesList();
 
   // Close WebSocket
   if (ws) {
