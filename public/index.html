@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wonka Clone Factory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-pink: #ff00ff;
+      --neon-cyan: #00ffff;
+      --neon-green: #00ff88;
+      --neon-yellow: #ffff00;
+      --neon-orange: #ff8800;
+      --candy-purple: #9b59b6;
+      --dark-bg: #0a0a1a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Exo 2', sans-serif;
+      background: var(--dark-bg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    .candy-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(255, 0, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(0, 255, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+        linear-gradient(180deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
+      z-index: -1;
+      animation: bgPulse 10s ease-in-out infinite;
+    }
+
+    @keyframes bgPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
+    /* Floating candy particles */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: -1;
+    }
+
+    .particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      animation: float 15s infinite;
+      opacity: 0.6;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.6; }
+      100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+    }
+
+    /* Neon text effects */
+    .neon-title {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: 3rem;
+      background: linear-gradient(135deg, var(--neon-pink), var(--neon-cyan), var(--neon-green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+      animation: neonPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes neonPulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.2); }
+    }
+
+    .subtitle {
+      font-family: 'Orbitron', monospace;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+      letter-spacing: 0.3em;
+    }
+
+    /* Glowing input */
+    .neon-input {
+      background: rgba(10, 10, 26, 0.8);
+      border: 2px solid var(--neon-cyan);
+      color: #fff;
+      font-family: 'Exo 2', sans-serif;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 15px rgba(0, 255, 255, 0.1);
+    }
+
+    .neon-input:focus {
+      outline: none;
+      border-color: var(--neon-pink);
+      box-shadow: 0 0 25px rgba(255, 0, 255, 0.5), inset 0 0 20px rgba(255, 0, 255, 0.2);
+    }
+
+    .neon-input::placeholder {
+      color: rgba(0, 255, 255, 0.5);
+    }
+
+    /* Candy button */
+    .candy-btn {
+      font-family: 'Orbitron', monospace;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--neon-pink), var(--candy-purple), var(--neon-cyan));
+      border: none;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.4);
+    }
+
+    .candy-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .candy-btn:hover::before {
+      left: 100%;
+    }
+
+    .candy-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 40px rgba(255, 0, 255, 0.6), 0 0 60px rgba(0, 255, 255, 0.4);
+    }
+
+    .candy-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .candy-btn:disabled:hover::before {
+      left: -100%;
+    }
+
+    /* Console log area */
+    .log-console {
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--neon-green);
+      border-radius: 8px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.75rem;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.2), inset 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .log-entry {
+      padding: 2px 8px;
+      border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    }
+
+    .log-console { color: var(--neon-cyan); }
+    .log-network { color: var(--neon-yellow); }
+    .log-pipeline { color: var(--neon-green); }
+    .log-error { color: #ff4444; }
+    .log-step { color: var(--neon-pink); font-weight: bold; }
+
+    /* Progress steps */
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+      opacity: 0.4;
+    }
+
+    .step-item.active {
+      opacity: 1;
+      background: rgba(0, 255, 255, 0.1);
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+    }
+
+    .step-item.completed {
+      opacity: 1;
+      color: var(--neon-green);
+    }
+
+    .step-item.error {
+      opacity: 1;
+      color: #ff4444;
+    }
+
+    .step-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .step-item.active .step-dot {
+      animation: dotPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
+
+    /* Result card */
+    .result-card {
+      background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 255, 255, 0.2));
+      border: 2px solid var(--neon-green);
+      border-radius: 12px;
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+      animation: resultAppear 0.5s ease-out;
+    }
+
+    @keyframes resultAppear {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .open-clone-btn {
+      background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+      font-family: 'Orbitron', monospace;
+      font-weight: 700;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    .open-clone-btn:hover {
+      box-shadow: 0 0 40px rgba(0, 255, 136, 0.6);
+      transform: scale(1.05);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(var(--neon-pink), var(--neon-cyan));
+      border-radius: 4px;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid transparent;
+      border-top-color: var(--neon-pink);
+      border-right-color: var(--neon-cyan);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="text-white">
+  <div class="candy-bg"></div>
+
+  <!-- Floating particles -->
+  <div class="particles" id="particles"></div>
+
+  <div class="container mx-auto px-4 py-8 max-w-6xl relative z-10">
+    <!-- Header -->
+    <header class="text-center mb-12">
+      <h1 class="neon-title mb-4">WONKA CLONE FACTORY</h1>
+      <p class="subtitle text-sm">WEBSITE CLONING MACHINE</p>
+    </header>
+
+    <!-- Main Card -->
+    <div class="bg-black/40 backdrop-blur-sm rounded-2xl p-8 border border-white/10 shadow-2xl">
+      <!-- URL Input Section -->
+      <div class="mb-8">
+        <label class="block text-cyan-300 mb-3 font-semibold text-lg">Enter URL to Clone</label>
+        <div class="flex gap-4 flex-wrap">
+          <input
+            type="url"
+            id="urlInput"
+            placeholder="https://example.com"
+            class="neon-input flex-1 min-w-[300px] px-6 py-4 rounded-xl text-lg"
+          />
+          <button
+            id="cloneBtn"
+            class="candy-btn px-8 py-4 rounded-xl text-lg"
+          >
+            <span id="btnText">Clone It!</span>
+            <span id="btnSpinner" class="spinner hidden"></span>
+          </button>
+        </div>
+        <p class="text-white/50 text-sm mt-2">Supports any public webpage. JavaScript-rendered content included!</p>
+      </div>
+
+      <!-- Progress and Logs Section (hidden until job starts) -->
+      <div id="jobSection" class="hidden">
+        <div class="grid md:grid-cols-3 gap-6">
+          <!-- Progress Steps -->
+          <div class="md:col-span-1">
+            <h3 class="text-pink-400 font-semibold mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+              </svg>
+              Progress
+            </h3>
+            <div class="space-y-2" id="progressSteps">
+              <div class="step-item" data-step="launch">
+                <div class="step-dot"></div>
+                <span>Launch Browser</span>
+              </div>
+              <div class="step-item" data-step="navigate">
+                <div class="step-dot"></div>
+                <span>Navigate to URL</span>
+              </div>
+              <div class="step-item" data-step="scroll">
+                <div class="step-dot"></div>
+                <span>Auto-scroll Page</span>
+              </div>
+              <div class="step-item" data-step="snapshot">
+                <div class="step-dot"></div>
+                <span>Snapshot DOM</span>
+              </div>
+              <div class="step-item" data-step="download">
+                <div class="step-dot"></div>
+                <span>Download Assets</span>
+              </div>
+              <div class="step-item" data-step="rewrite">
+                <div class="step-dot"></div>
+                <span>Rewrite References</span>
+              </div>
+              <div class="step-item" data-step="save">
+                <div class="step-dot"></div>
+                <span>Save Output</span>
+              </div>
+              <div class="step-item" data-step="done">
+                <div class="step-dot"></div>
+                <span>Done!</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Logs -->
+          <div class="md:col-span-2">
+            <h3 class="text-cyan-400 font-semibold mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+              </svg>
+              Live Console
+            </h3>
+            <div class="log-console h-80 overflow-y-auto" id="logConsole">
+              <div class="p-4 text-white/50 text-center">Waiting for clone job to start...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result Section (hidden until complete) -->
+        <div id="resultSection" class="hidden mt-8">
+          <div class="result-card p-6">
+            <h3 class="text-green-400 font-bold text-xl mb-4 flex items-center gap-2">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+              Clone Complete!
+            </h3>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <p class="text-white/70 mb-2">Output Folder:</p>
+                <code class="text-cyan-300 bg-black/40 px-3 py-1 rounded block overflow-x-auto" id="outputPath"></code>
+              </div>
+              <div>
+                <p class="text-white/70 mb-2">Assets:</p>
+                <p class="text-green-400" id="assetsInfo"></p>
+              </div>
+            </div>
+            <div class="mt-6 flex gap-4 flex-wrap">
+              <a id="openCloneLink" href="#" target="_blank" class="open-clone-btn inline-block px-8 py-3 rounded-lg text-black font-bold">
+                Open Cloned Page
+              </a>
+              <button id="cloneAnotherBtn" class="candy-btn px-8 py-3 rounded-lg">
+                Clone Another
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Section (hidden until error) -->
+        <div id="errorSection" class="hidden mt-8">
+          <div class="bg-red-900/30 border-2 border-red-500 rounded-xl p-6">
+            <h3 class="text-red-400 font-bold text-xl mb-2 flex items-center gap-2">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+              Clone Failed
+            </h3>
+            <p class="text-red-300" id="errorMessage"></p>
+            <button id="tryAgainBtn" class="candy-btn px-6 py-2 rounded-lg mt-4">
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center mt-12 text-white/40 text-sm">
+      <p>Built with Playwright + Express | GeekOut Vegas 2026</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
