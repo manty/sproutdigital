@@ -220,7 +220,7 @@ async function clonePage(url, emit, options = {}) {
         if (result) {
           assetUrls.set(assetUrl, result.localPath);
           if (result.contentType && result.contentType.includes('css')) {
-            cssFiles.push({ url: assetUrl, localPath: result.fullPath });
+            cssFiles.push({ url: assetUrl, fullPath: result.fullPath, localPath: result.localPath });
           }
           downloaded++;
         } else {
