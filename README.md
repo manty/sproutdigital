@@ -26,14 +26,14 @@
 
 ### Option 1: One-Click Codespaces
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/manty/GeekoutVegas2026)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/manty/sproutdigital-website-cloner)
 
 ### Option 2: Local Development
 
 ```bash
 # Clone the repo
-git clone https://github.com/manty/GeekoutVegas2026.git
-cd GeekoutVegas2026
+git clone https://github.com/manty/sproutdigital-website-cloner.git
+cd sproutdigital-website-cloner
 
 # Install dependencies (also installs Playwright Chromium)
 npm install
