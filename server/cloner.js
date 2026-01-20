@@ -180,6 +180,23 @@ async function clonePage(url, emit, options = {}) {
       }
     });
 
+    // Collect preload fonts and other preloaded resources
+    root.querySelectorAll('link[rel="preload"][href]').forEach(el => {
+      const href = el.getAttribute('href');
+      const as = el.getAttribute('as') || '';
+      if (href && !isDataUrl(href) && (as === 'font' || as === 'style' || as === 'script' || as === 'image')) {
+        assetUrls.set(resolveUrl(finalUrl, href), null);
+      }
+    });
+
+    // Collect fonts/images from inline style blocks
+    root.querySelectorAll('style').forEach(el => {
+      const styleContent = el.textContent || '';
+      extractCssUrls(styleContent).forEach(url => {
+        assetUrls.set(resolveUrl(finalUrl, url), null);
+      });
+    });
+
     // Collect background images from inline styles
     root.querySelectorAll('[style]').forEach(el => {
       const style = el.getAttribute('style');
@@ -260,22 +277,81 @@ async function clonePage(url, emit, options = {}) {
     emit('step', 'rewrite');
     emit('pipeline', 'Rewriting asset references in HTML...');
 
+    // Build a map of all URL variations to local paths
+    const urlReplacements = new Map();
+
     for (const [originalUrl, localPath] of assetUrls) {
       if (localPath) {
-        // Replace absolute URLs
-        html = html.split(originalUrl).join(localPath);
+        // Add the full absolute URL
+        urlReplacements.set(originalUrl, localPath);
 
-        // Also try to replace relative versions
         try {
           const parsed = new URL(originalUrl);
-          const relativePath = parsed.pathname + parsed.search;
-          if (relativePath !== localPath) {
-            html = html.split(`"${relativePath}"`).join(`"${localPath}"`);
-            html = html.split(`'${relativePath}'`).join(`'${localPath}'`);
+
+          // Add pathname + search
+          const pathWithSearch = parsed.pathname + parsed.search;
+          urlReplacements.set(pathWithSearch, localPath);
+
+          // Add pathname only (without query string)
+          urlReplacements.set(parsed.pathname, localPath);
+
+          // Add protocol-relative URL
+          urlReplacements.set('//' + parsed.host + parsed.pathname + parsed.search, localPath);
+          urlReplacements.set('//' + parsed.host + parsed.pathname, localPath);
+
+          // Handle CDN URLs - try without query params
+          if (parsed.search) {
+            urlReplacements.set(parsed.origin + parsed.pathname, localPath);
           }
         } catch {}
       }
     }
+
+    // Sort replacements by length (longest first) to avoid partial replacements
+    const sortedReplacements = [...urlReplacements.entries()].sort((a, b) => b[0].length - a[0].length);
+
+    // Apply all replacements
+    for (const [urlVariant, localPath] of sortedReplacements) {
+      // Replace in various attribute formats
+      html = html.split(`"${urlVariant}"`).join(`"${localPath}"`);
+      html = html.split(`'${urlVariant}'`).join(`'${localPath}'`);
+      html = html.split(`url(${urlVariant})`).join(`url(${localPath})`);
+      html = html.split(`url("${urlVariant}")`).join(`url("${localPath}")`);
+      html = html.split(`url('${urlVariant}')`).join(`url('${localPath}')`);
+    }
+
+    // Also handle relative URLs that weren't captured
+    // Replace any remaining external URLs with local placeholders
+    const baseUrl = new URL(finalUrl);
+
+    // Fix relative paths that start with ../  or ./
+    html = html.replace(/(?:src|href)="(\.\.?\/[^"]+)"/g, (match, relPath) => {
+      const absUrl = resolveUrl(finalUrl, relPath);
+      const localPath = assetUrls.get(absUrl);
+      if (localPath) {
+        return match.replace(relPath, localPath);
+      }
+      return match;
+    });
+
+    html = html.replace(/(?:src|href)='(\.\.?\/[^']+)'/g, (match, relPath) => {
+      const absUrl = resolveUrl(finalUrl, relPath);
+      const localPath = assetUrls.get(absUrl);
+      if (localPath) {
+        return match.replace(relPath, localPath);
+      }
+      return match;
+    });
+
+    // Fix relative paths in url() CSS patterns
+    html = html.replace(/url\(['"]?(\.\.?\/[^'")]+)['"]?\)/g, (match, relPath) => {
+      const absUrl = resolveUrl(finalUrl, relPath);
+      const localPath = assetUrls.get(absUrl);
+      if (localPath) {
+        return `url('${localPath}')`;
+      }
+      return match;
+    });
 
     // Step 11: Save output
     emit('step', 'save');
