@@ -1,7 +1,7 @@
 {
-  "name": "geekout-vegas-2026",
+  "name": "sproutdigital-website-cloner",
   "version": "1.0.0",
-  "description": "GeekOut Vegas 2026 Workshop - Website Cloner with Claude Code",
+  "description": "SproutDigital Website Cloner - Clone any public landing page",
   "private": true,
   "scripts": {
     "dev": "node server/index.js",
@@ -9,7 +9,7 @@
     "postinstall": "npx playwright install chromium",
     "test": "node server/self-test.js"
   },
-  "author": "Samar Hussain",
+  "author": "SproutDigital",
   "license": "MIT",
   "dependencies": {
     "express": "^4.21.0",

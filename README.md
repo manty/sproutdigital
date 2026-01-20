@@ -1,24 +1,24 @@
-# GEEKOUT VEGAS 2026
+# SPROUTDIGITAL
 
 ```
- ██████╗ ███████╗███████╗██╗  ██╗ ██████╗ ██╗   ██╗████████╗
-██╔════╝ ██╔════╝██╔════╝██║ ██╔╝██╔═══██╗██║   ██║╚══██╔══╝
-██║  ███╗█████╗  █████╗  █████╔╝ ██║   ██║██║   ██║   ██║
-██║   ██║██╔══╝  ██╔══╝  ██╔═██╗ ██║   ██║██║   ██║   ██║
-╚██████╔╝███████╗███████╗██║  ██╗╚██████╔╝╚██████╔╝   ██║
- ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝    ╚═╝
+███████╗██████╗ ██████╗  ██████╗ ██╗   ██╗████████╗
+██╔════╝██╔══██╗██╔══██╗██╔═══██╗██║   ██║╚══██╔══╝
+███████╗██████╔╝██████╔╝██║   ██║██║   ██║   ██║
+╚════██║██╔═══╝ ██╔══██╗██║   ██║██║   ██║   ██║
+███████║██║     ██║  ██║╚██████╔╝╚██████╔╝   ██║
+╚══════╝╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝    ╚═╝
 
-██╗   ██╗███████╗ ██████╗  █████╗ ███████╗    ██████╗  ██████╗ ██████╗  ██████╗
-██║   ██║██╔════╝██╔════╝ ██╔══██╗██╔════╝    ╚════██╗██╔═████╗╚════██╗██╔════╝
-██║   ██║█████╗  ██║  ███╗███████║███████╗     █████╔╝██║██╔██║ █████╔╝███████╗
-╚██╗ ██╔╝██╔══╝  ██║   ██║██╔══██║╚════██║    ██╔═══╝ ████╔╝██║██╔═══╝ ██╔═══██╗
- ╚████╔╝ ███████╗╚██████╔╝██║  ██║███████║    ███████╗╚██████╔╝███████╗╚██████╔╝
-  ╚═══╝  ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝    ╚══════╝ ╚═════╝ ╚══════╝ ╚═════╝
+██████╗ ██╗ ██████╗ ██╗████████╗ █████╗ ██╗
+██╔══██╗██║██╔════╝ ██║╚══██╔══╝██╔══██╗██║
+██║  ██║██║██║  ███╗██║   ██║   ███████║██║
+██║  ██║██║██║   ██║██║   ██║   ██╔══██║██║
+██████╔╝██║╚██████╔╝██║   ██║   ██║  ██║███████╗
+╚═════╝ ╚═╝ ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
 ```
 
-## Wonka Clone Factory - Website Cloner Workshop
+## Wonka Clone Factory - Website Cloner
 
-> **Build a pixel-perfect website cloner with Claude Code in 45 minutes**
+> **Clone any public landing page with pixel-perfect accuracy**
 
 ---
 
@@ -26,13 +26,13 @@
 
 ### Option 1: One-Click Codespaces
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/phc-global/GeekoutVegas2026)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/manty/GeekoutVegas2026)
 
 ### Option 2: Local Development
 
 ```bash
 # Clone the repo
-git clone https://github.com/phc-global/GeekoutVegas2026.git
+git clone https://github.com/manty/GeekoutVegas2026.git
 cd GeekoutVegas2026
 
 # Install dependencies (also installs Playwright Chromium)
@@ -189,7 +189,7 @@ git remote set-url origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
 
 # 3. Push your code
 git add -A
-git commit -m "My website cloner from Geekout Vegas 2026"
+git commit -m "SproutDigital Website Cloner"
 git push -u origin main
 ```
 
@@ -197,8 +197,8 @@ git push -u origin main
 
 ## Need Help?
 
-Raise your hand or ask in the workshop chat!
+Open an issue on GitHub or contact SproutDigital.
 
 ---
 
-**Workshop by [Samar Hussain](https://github.com/samarhussain90)**
+**Built by SproutDigital**
