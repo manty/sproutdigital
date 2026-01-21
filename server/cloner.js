@@ -66,25 +66,41 @@ async function clonePage(url, emit, options = {}) {
     emit('step', 'launch');
     emit('pipeline', 'Launching Chromium browser...');
 
-    // Log browser path for debugging
-    const browserPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
-    emit('pipeline', `Browser path env: ${browserPath || 'not set'}`);
-
-    // Try to find chromium executable
-    const possiblePaths = [
-      '/ms-playwright/chromium-1200/chrome-linux/chrome',
-      '/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-linux64/chrome-headless-shell',
-      process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-    ].filter(Boolean);
-
-    let executablePath = null;
     const fsSync = require('fs');
-    for (const p of possiblePaths) {
-      if (fsSync.existsSync(p)) {
-        executablePath = p;
-        emit('pipeline', `Found browser at: ${p}`);
-        break;
+    const browserBasePath = process.env.PLAYWRIGHT_BROWSERS_PATH || '/ms-playwright';
+    emit('pipeline', `Browser base path: ${browserBasePath}`);
+
+    // Dynamically find chromium executable
+    let executablePath = null;
+    try {
+      if (fsSync.existsSync(browserBasePath)) {
+        const dirs = fsSync.readdirSync(browserBasePath);
+        emit('pipeline', `Browser dirs: ${dirs.join(', ')}`);
+
+        // Look for chromium directory (not headless_shell)
+        const chromiumDir = dirs.find(d => d.startsWith('chromium-') && !d.includes('headless'));
+        if (chromiumDir) {
+          const chromePath = path.join(browserBasePath, chromiumDir, 'chrome-linux', 'chrome');
+          if (fsSync.existsSync(chromePath)) {
+            executablePath = chromePath;
+            emit('pipeline', `Found chrome at: ${chromePath}`);
+          }
+        }
+
+        // Fallback to headless shell if no regular chromium
+        if (!executablePath) {
+          const headlessDir = dirs.find(d => d.includes('chromium_headless_shell'));
+          if (headlessDir) {
+            const headlessPath = path.join(browserBasePath, headlessDir, 'chrome-headless-shell-linux64', 'chrome-headless-shell');
+            if (fsSync.existsSync(headlessPath)) {
+              executablePath = headlessPath;
+              emit('pipeline', `Found headless shell at: ${headlessPath}`);
+            }
+          }
+        }
       }
+    } catch (err) {
+      emit('pipeline', `Error finding browser: ${err.message}`);
     }
 
     const launchOptions = {
@@ -94,6 +110,8 @@ async function clonePage(url, emit, options = {}) {
 
     if (executablePath) {
       launchOptions.executablePath = executablePath;
+    } else {
+      emit('pipeline', 'No explicit path found, using Playwright default...');
     }
 
     browser = await chromium.launch(launchOptions);
