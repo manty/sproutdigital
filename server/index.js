@@ -4,7 +4,31 @@ const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
+const archiver = require('archiver');
 const { clonePage } = require('./cloner');
+
+// ============================================
+// METADATA HELPERS
+// ============================================
+const METADATA_FILE = path.join(__dirname, '..', 'output', 'clone-metadata.json');
+
+async function readMetadata() {
+  try {
+    const data = await fs.readFile(METADATA_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    // Return default structure if file doesn't exist
+    return { folders: [], clones: {} };
+  }
+}
+
+async function writeMetadata(metadata) {
+  await fs.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2), 'utf-8');
+}
+
+function generateId(prefix = 'id') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -168,21 +192,34 @@ app.get('/api/clones', async (req, res) => {
   try {
     const outputDir = path.join(__dirname, '..', 'output');
     const folders = await fs.readdir(outputDir);
+    const metadata = await readMetadata();
+    const { folderId } = req.query; // Optional filter by folder
 
     const clones = [];
     for (const folder of folders) {
+      // Skip metadata file
+      if (folder === 'clone-metadata.json') continue;
+
       const folderPath = path.join(outputDir, folder);
       const stat = await fs.stat(folderPath);
       if (stat.isDirectory()) {
         const indexPath = path.join(folderPath, 'index.html');
         const hasIndex = fsSync.existsSync(indexPath);
         if (hasIndex) {
-          clones.push({
+          const cloneMeta = metadata.clones[folder] || {};
+          const clone = {
             id: folder,
-            createdAt: stat.mtime,
+            name: cloneMeta.name || folder,
+            folderId: cloneMeta.folderId || null,
+            createdAt: cloneMeta.createdAt || stat.mtime,
             previewUrl: `/clone/${folder}/index-static.html`,
             editUrl: `/editor.html?id=${folder}`
-          });
+          };
+
+          // Filter by folder if specified
+          if (!folderId || folderId === 'all' || clone.folderId === folderId) {
+            clones.push(clone);
+          }
         }
       }
     }
@@ -330,6 +367,224 @@ async function copyDir(src, dest) {
     }
   }
 }
+
+// ============================================
+// FOLDER API ENDPOINTS
+// ============================================
+
+// List all folders
+app.get('/api/folders', async (req, res) => {
+  try {
+    const metadata = await readMetadata();
+    res.json(metadata.folders || []);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// Create folder
+app.post('/api/folders', async (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Folder name is required' });
+  }
+
+  try {
+    const metadata = await readMetadata();
+    const folder = {
+      id: generateId('folder'),
+      name,
+      createdAt: Date.now()
+    };
+    metadata.folders.push(folder);
+    await writeMetadata(metadata);
+    res.json(folder);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create folder' });
+  }
+});
+
+// Rename folder
+app.put('/api/folders/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Folder name is required' });
+  }
+
+  try {
+    const metadata = await readMetadata();
+    const folder = metadata.folders.find(f => f.id === id);
+    if (!folder) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+    folder.name = name;
+    await writeMetadata(metadata);
+    res.json(folder);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to rename folder' });
+  }
+});
+
+// Delete folder (moves clones to root)
+app.delete('/api/folders/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const metadata = await readMetadata();
+    const folderIndex = metadata.folders.findIndex(f => f.id === id);
+    if (folderIndex === -1) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    // Move clones in this folder to root (null folderId)
+    for (const cloneId in metadata.clones) {
+      if (metadata.clones[cloneId].folderId === id) {
+        metadata.clones[cloneId].folderId = null;
+      }
+    }
+
+    metadata.folders.splice(folderIndex, 1);
+    await writeMetadata(metadata);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete folder' });
+  }
+});
+
+// ============================================
+// CLONE MANAGEMENT ENDPOINTS
+// ============================================
+
+// Rename clone
+app.put('/api/clones/:id/rename', async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  try {
+    const cloneDir = path.join(__dirname, '..', 'output', id);
+    if (!fsSync.existsSync(cloneDir)) {
+      return res.status(404).json({ error: 'Clone not found' });
+    }
+
+    const metadata = await readMetadata();
+    if (!metadata.clones[id]) {
+      metadata.clones[id] = { createdAt: Date.now() };
+    }
+    metadata.clones[id].name = name;
+    await writeMetadata(metadata);
+
+    res.json({ success: true, name });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to rename clone' });
+  }
+});
+
+// Move clone to folder
+app.put('/api/clones/:id/move', async (req, res) => {
+  const { id } = req.params;
+  const { folderId } = req.body; // null for root
+
+  try {
+    const cloneDir = path.join(__dirname, '..', 'output', id);
+    if (!fsSync.existsSync(cloneDir)) {
+      return res.status(404).json({ error: 'Clone not found' });
+    }
+
+    const metadata = await readMetadata();
+
+    // Verify folder exists if folderId is provided
+    if (folderId && !metadata.folders.find(f => f.id === folderId)) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    if (!metadata.clones[id]) {
+      metadata.clones[id] = { createdAt: Date.now() };
+    }
+    metadata.clones[id].folderId = folderId || null;
+    await writeMetadata(metadata);
+
+    res.json({ success: true, folderId: folderId || null });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to move clone' });
+  }
+});
+
+// Delete clone
+app.delete('/api/clones/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const cloneDir = path.join(__dirname, '..', 'output', id);
+    if (!fsSync.existsSync(cloneDir)) {
+      return res.status(404).json({ error: 'Clone not found' });
+    }
+
+    // Delete directory recursively
+    await fs.rm(cloneDir, { recursive: true, force: true });
+
+    // Remove from metadata
+    const metadata = await readMetadata();
+    delete metadata.clones[id];
+    await writeMetadata(metadata);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting clone:', error);
+    res.status(500).json({ error: 'Failed to delete clone' });
+  }
+});
+
+// Download clone (ZIP or HTML)
+app.get('/api/clones/:id/download', async (req, res) => {
+  const { id } = req.params;
+  const { format } = req.query; // 'zip' or 'html'
+
+  try {
+    const cloneDir = path.join(__dirname, '..', 'output', id);
+    if (!fsSync.existsSync(cloneDir)) {
+      return res.status(404).json({ error: 'Clone not found' });
+    }
+
+    const metadata = await readMetadata();
+    const cloneName = metadata.clones[id]?.name || id;
+    const safeName = cloneName.replace(/[^a-z0-9]/gi, '_');
+
+    if (format === 'html') {
+      // Download just the HTML file
+      const htmlPath = path.join(cloneDir, 'index-static.html');
+      if (!fsSync.existsSync(htmlPath)) {
+        return res.status(404).json({ error: 'HTML file not found' });
+      }
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}.html"`);
+      const stream = fsSync.createReadStream(htmlPath);
+      stream.pipe(res);
+    } else {
+      // Download as ZIP
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}.zip"`);
+
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      archive.on('error', (err) => {
+        throw err;
+      });
+      archive.pipe(res);
+
+      // Add entire clone directory to ZIP
+      archive.directory(cloneDir, safeName);
+      await archive.finalize();
+    }
+  } catch (error) {
+    console.error('Error downloading clone:', error);
+    res.status(500).json({ error: 'Failed to download clone' });
+  }
+});
 
 // ============================================
 // END EDITOR API ENDPOINTS

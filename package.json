@@ -12,6 +12,7 @@
   "author": "SproutDigital",
   "license": "MIT",
   "dependencies": {
+    "archiver": "^7.0.1",
     "express": "^4.21.0",
     "node-html-parser": "^6.1.13",
     "playwright": "^1.49.1",

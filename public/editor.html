@@ -166,6 +166,129 @@
       display: flex;
       gap: 10px;
     }
+
+    /* Editor action buttons */
+    .editor-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .action-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .action-btn-outline {
+      background: transparent;
+      border: 1px solid #444;
+      color: #aaa;
+    }
+
+    .action-btn-outline:hover {
+      border-color: #00ff88;
+      color: #00ff88;
+    }
+
+    .action-btn-danger {
+      background: transparent;
+      border: 1px solid #ff4444;
+      color: #ff4444;
+    }
+
+    .action-btn-danger:hover {
+      background: #ff4444;
+      color: #fff;
+    }
+
+    .download-dropdown {
+      position: relative;
+    }
+
+    .download-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #1a1a2e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 4px 0;
+      min-width: 120px;
+      z-index: 100;
+      display: none;
+      margin-top: 4px;
+    }
+
+    .download-menu.show {
+      display: block;
+    }
+
+    .download-menu button {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      text-align: left;
+      background: transparent;
+      border: none;
+      color: #ccc;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .download-menu button:hover {
+      background: rgba(0, 255, 136, 0.1);
+      color: #00ff88;
+    }
+
+    /* Modal styles */
+    .editor-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+
+    .editor-modal.show {
+      display: flex;
+    }
+
+    .editor-modal-content {
+      background: #1a1a2e;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 24px;
+      min-width: 320px;
+      max-width: 400px;
+    }
+
+    .editor-modal h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #fff;
+    }
+
+    .editor-modal p {
+      color: #888;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .editor-modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white">
@@ -175,6 +298,43 @@
     <div class="p-4 border-b border-gray-700">
       <h1 class="text-xl font-bold text-green-400">Page Editor</h1>
       <p class="text-gray-400 text-sm mt-1" id="cloneName">Loading...</p>
+
+      <!-- Action Buttons -->
+      <div class="editor-actions">
+        <button id="renameBtn" class="action-btn action-btn-outline">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Rename
+        </button>
+
+        <div class="download-dropdown">
+          <button id="downloadBtn" class="action-btn action-btn-outline">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <div class="download-menu" id="downloadMenu">
+            <button id="downloadZipBtn">Download ZIP</button>
+            <button id="downloadHtmlBtn">Download HTML</button>
+          </div>
+        </div>
+
+        <button id="deleteBtn" class="action-btn action-btn-danger">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+          </svg>
+          Delete
+        </button>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -361,6 +521,31 @@
       <div class="flex gap-2">
         <button id="modalCancel" class="btn-secondary flex-1">Cancel</button>
         <button id="modalApply" class="btn-primary flex-1">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rename Modal -->
+  <div id="renameModal" class="editor-modal">
+    <div class="editor-modal-content">
+      <h3>Rename Clone</h3>
+      <p>Enter a new display name for this clone:</p>
+      <input type="text" id="renameInput" class="input-field" placeholder="New name...">
+      <div class="editor-modal-actions">
+        <button id="renameCancelBtn" class="btn-secondary">Cancel</button>
+        <button id="renameConfirmBtn" class="btn-primary">Rename</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Modal -->
+  <div id="deleteModal" class="editor-modal">
+    <div class="editor-modal-content">
+      <h3>Delete Clone</h3>
+      <p>Are you sure you want to delete this clone? This action cannot be undone.</p>
+      <div class="editor-modal-actions">
+        <button id="deleteCancelBtn" class="btn-secondary">Cancel</button>
+        <button id="deleteConfirmBtn" class="btn-primary" style="background: #ff4444;">Delete</button>
       </div>
     </div>
   </div>

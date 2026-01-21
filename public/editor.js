@@ -73,6 +73,20 @@ async function loadClone() {
   } catch (e) {
     console.log('No saved edits found');
   }
+
+  // Load clone metadata for display name
+  try {
+    const response = await fetch('/api/clones');
+    if (response.ok) {
+      const clones = await response.json();
+      const clone = clones.find(c => c.id === state.cloneId);
+      if (clone && clone.name) {
+        cloneNameEl.textContent = clone.name;
+      }
+    }
+  } catch (e) {
+    console.log('Could not load clone metadata');
+  }
 }
 
 // Extract links and images from the iframe
@@ -856,6 +870,127 @@ function selectAllMatches(select) {
   renderFindResults();
 }
 
+// ============================================
+// CLONE MANAGEMENT (Rename, Download, Delete)
+// ============================================
+
+// Rename clone
+async function renameClone(newName) {
+  try {
+    const response = await fetch(`/api/clones/${state.cloneId}/rename`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName })
+    });
+
+    if (response.ok) {
+      cloneNameEl.textContent = newName;
+      showToast('Clone renamed successfully!');
+      return true;
+    } else {
+      throw new Error('Rename failed');
+    }
+  } catch (e) {
+    console.error('Error renaming clone:', e);
+    showToast('Error renaming clone');
+    return false;
+  }
+}
+
+// Download clone
+async function downloadClone(format) {
+  try {
+    showToast(`Preparing ${format.toUpperCase()} download...`);
+    const response = await fetch(`/api/clones/${state.cloneId}/download?format=${format}`);
+
+    if (response.ok) {
+      const blob = await response.blob();
+      const filename = format === 'zip'
+        ? `${state.cloneId}.zip`
+        : `${state.cloneId}.html`;
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast('Download started!');
+    } else {
+      throw new Error('Download failed');
+    }
+  } catch (e) {
+    console.error('Error downloading clone:', e);
+    showToast('Error downloading clone');
+  }
+}
+
+// Delete clone
+async function deleteClone() {
+  try {
+    const response = await fetch(`/api/clones/${state.cloneId}`, {
+      method: 'DELETE'
+    });
+
+    if (response.ok) {
+      showToast('Clone deleted!');
+      // Redirect to home after short delay
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
+      return true;
+    } else {
+      throw new Error('Delete failed');
+    }
+  } catch (e) {
+    console.error('Error deleting clone:', e);
+    showToast('Error deleting clone');
+    return false;
+  }
+}
+
+// Show/hide rename modal
+function openRenameModal() {
+  const modal = document.getElementById('renameModal');
+  const input = document.getElementById('renameInput');
+  input.value = cloneNameEl.textContent;
+  modal.classList.add('show');
+  input.focus();
+  input.select();
+}
+
+function closeRenameModal() {
+  document.getElementById('renameModal').classList.remove('show');
+}
+
+// Show/hide delete modal
+function openDeleteModal() {
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('show');
+}
+
+// Toggle download menu
+function toggleDownloadMenu() {
+  const menu = document.getElementById('downloadMenu');
+  menu.classList.toggle('show');
+}
+
+// Close download menu when clicking outside
+function closeDownloadMenu(e) {
+  const menu = document.getElementById('downloadMenu');
+  const btn = document.getElementById('downloadBtn');
+  if (!menu.contains(e.target) && !btn.contains(e.target)) {
+    menu.classList.remove('show');
+  }
+}
+
 // Device preview
 function changeDevice(device) {
   const iframe = previewIframe;
@@ -996,5 +1131,49 @@ function setupEventListeners() {
       e.preventDefault();
       e.returnValue = '';
     }
+  });
+
+  // Clone management actions
+  document.getElementById('renameBtn').addEventListener('click', openRenameModal);
+  document.getElementById('renameCancelBtn').addEventListener('click', closeRenameModal);
+  document.getElementById('renameConfirmBtn').addEventListener('click', async () => {
+    const newName = document.getElementById('renameInput').value.trim();
+    if (newName) {
+      const success = await renameClone(newName);
+      if (success) closeRenameModal();
+    }
+  });
+  document.getElementById('renameInput').addEventListener('keypress', async (e) => {
+    if (e.key === 'Enter') {
+      const newName = e.target.value.trim();
+      if (newName) {
+        const success = await renameClone(newName);
+        if (success) closeRenameModal();
+      }
+    }
+  });
+  document.getElementById('renameModal').addEventListener('click', (e) => {
+    if (e.target.id === 'renameModal') closeRenameModal();
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', toggleDownloadMenu);
+  document.getElementById('downloadZipBtn').addEventListener('click', () => {
+    downloadClone('zip');
+    document.getElementById('downloadMenu').classList.remove('show');
+  });
+  document.getElementById('downloadHtmlBtn').addEventListener('click', () => {
+    downloadClone('html');
+    document.getElementById('downloadMenu').classList.remove('show');
+  });
+  document.addEventListener('click', closeDownloadMenu);
+
+  document.getElementById('deleteBtn').addEventListener('click', openDeleteModal);
+  document.getElementById('deleteCancelBtn').addEventListener('click', closeDeleteModal);
+  document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
+    await deleteClone();
+    closeDeleteModal();
+  });
+  document.getElementById('deleteModal').addEventListener('click', (e) => {
+    if (e.target.id === 'deleteModal') closeDeleteModal();
   });
 }
