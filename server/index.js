@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const archiver = require('archiver');
+const sharp = require('sharp');
+const { minify: minifyHtml } = require('html-minifier-terser');
 const { clonePage } = require('./cloner');
 
 // ============================================
@@ -24,6 +26,172 @@ async function readMetadata() {
 
 async function writeMetadata(metadata) {
   await fs.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2), 'utf-8');
+}
+
+// ============================================
+// OPTIMIZATION HELPERS
+// ============================================
+
+/**
+ * Optimize an image file - convert to WebP and compress
+ * @param {string} inputPath - Path to source image
+ * @param {string} outputPath - Path to save optimized image
+ * @param {object} options - Optimization options
+ */
+async function optimizeImage(inputPath, outputPath, options = {}) {
+  const { quality = 80, maxWidth = 1920, maxHeight = 1080 } = options;
+
+  try {
+    const ext = path.extname(inputPath).toLowerCase();
+
+    // Skip if not an image we can process
+    const supportedFormats = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.avif'];
+    if (!supportedFormats.includes(ext)) {
+      // Just copy the file as-is
+      await fs.copyFile(inputPath, outputPath);
+      return { optimized: false, reason: 'unsupported format' };
+    }
+
+    // Get image metadata
+    const metadata = await sharp(inputPath).metadata();
+
+    // Skip if already small or SVG
+    if (ext === '.svg') {
+      await fs.copyFile(inputPath, outputPath);
+      return { optimized: false, reason: 'svg' };
+    }
+
+    // Create WebP output path
+    const webpOutputPath = outputPath.replace(/\.[^.]+$/, '.webp');
+
+    // Process with sharp
+    let pipeline = sharp(inputPath);
+
+    // Resize if larger than max dimensions
+    if (metadata.width > maxWidth || metadata.height > maxHeight) {
+      pipeline = pipeline.resize(maxWidth, maxHeight, {
+        fit: 'inside',
+        withoutEnlargement: true
+      });
+    }
+
+    // Convert to WebP with compression
+    await pipeline
+      .webp({ quality, effort: 6 })
+      .toFile(webpOutputPath);
+
+    // Get file sizes for comparison
+    const originalSize = (await fs.stat(inputPath)).size;
+    const optimizedSize = (await fs.stat(webpOutputPath)).size;
+
+    return {
+      optimized: true,
+      originalPath: inputPath,
+      optimizedPath: webpOutputPath,
+      originalSize,
+      optimizedSize,
+      savings: Math.round((1 - optimizedSize / originalSize) * 100)
+    };
+  } catch (error) {
+    // If optimization fails, just copy the original
+    await fs.copyFile(inputPath, outputPath);
+    return { optimized: false, reason: error.message };
+  }
+}
+
+/**
+ * Minify HTML content
+ * @param {string} html - HTML content to minify
+ */
+async function optimizeHtml(html) {
+  try {
+    return await minifyHtml(html, {
+      collapseWhitespace: true,
+      removeComments: true,
+      removeRedundantAttributes: true,
+      removeScriptTypeAttributes: true,
+      removeStyleLinkTypeAttributes: true,
+      useShortDoctype: true,
+      minifyCSS: true,
+      minifyJS: true
+    });
+  } catch (error) {
+    console.error('HTML minification error:', error.message);
+    return html; // Return original if minification fails
+  }
+}
+
+/**
+ * Create an optimized copy of a clone directory
+ * @param {string} sourceDir - Source clone directory
+ * @param {string} destDir - Destination for optimized copy
+ * @param {object} options - Optimization options
+ */
+async function createOptimizedCopy(sourceDir, destDir, options = {}) {
+  const { optimizeImages = true, minifyHtml: shouldMinifyHtml = true, quality = 80 } = options;
+
+  await fs.mkdir(destDir, { recursive: true });
+
+  const stats = {
+    imagesOptimized: 0,
+    imagesSaved: 0,
+    htmlMinified: false
+  };
+
+  // Process all files recursively
+  async function processDir(srcPath, dstPath) {
+    await fs.mkdir(dstPath, { recursive: true });
+    const entries = await fs.readdir(srcPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const srcFile = path.join(srcPath, entry.name);
+      const dstFile = path.join(dstPath, entry.name);
+
+      if (entry.isDirectory()) {
+        await processDir(srcFile, dstFile);
+      } else {
+        const ext = path.extname(entry.name).toLowerCase();
+
+        // Handle images
+        if (optimizeImages && ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff'].includes(ext)) {
+          const result = await optimizeImage(srcFile, dstFile, { quality });
+          if (result.optimized) {
+            stats.imagesOptimized++;
+            stats.imagesSaved += result.originalSize - result.optimizedSize;
+          }
+        }
+        // Handle HTML
+        else if (shouldMinifyHtml && ext === '.html') {
+          const content = await fs.readFile(srcFile, 'utf-8');
+
+          // Update image references to use .webp if we optimized images
+          let optimizedContent = content;
+          if (optimizeImages) {
+            // Replace image extensions in HTML with .webp
+            optimizedContent = optimizedContent.replace(
+              /(\ssrc=["'][^"']*)\.(jpg|jpeg|png|gif|tiff)(["'])/gi,
+              '$1.webp$3'
+            );
+            optimizedContent = optimizedContent.replace(
+              /(\ssrcset=["'][^"']*)\.(jpg|jpeg|png|gif|tiff)([\s,])/gi,
+              '$1.webp$3'
+            );
+          }
+
+          const minified = await optimizeHtml(optimizedContent);
+          await fs.writeFile(dstFile, minified, 'utf-8');
+          stats.htmlMinified = true;
+        }
+        // Copy other files as-is
+        else {
+          await fs.copyFile(srcFile, dstFile);
+        }
+      }
+    }
+  }
+
+  await processDir(sourceDir, destDir);
+  return stats;
 }
 
 function generateId(prefix = 'id') {
@@ -540,10 +708,10 @@ app.delete('/api/clones/:id', async (req, res) => {
   }
 });
 
-// Download clone (ZIP or HTML)
+// Download clone (ZIP or HTML) with optional optimization
 app.get('/api/clones/:id/download', async (req, res) => {
   const { id } = req.params;
-  const { format } = req.query; // 'zip' or 'html'
+  const { format, optimize } = req.query; // format: 'zip' or 'html', optimize: 'true' for optimization
 
   try {
     const cloneDir = path.join(__dirname, '..', 'output', id);
@@ -554,30 +722,69 @@ app.get('/api/clones/:id/download', async (req, res) => {
     const metadata = await readMetadata();
     const cloneName = metadata.clones[id]?.name || id;
     const safeName = cloneName.replace(/[^a-z0-9]/gi, '_');
+    const shouldOptimize = optimize === 'true';
+
+    // If optimization requested, create optimized copy in temp dir
+    let sourceDir = cloneDir;
+    let tempDir = null;
+
+    if (shouldOptimize) {
+      tempDir = path.join(__dirname, '..', 'output', '.temp', `${id}_optimized_${Date.now()}`);
+      console.log(`Creating optimized copy at: ${tempDir}`);
+
+      const stats = await createOptimizedCopy(cloneDir, tempDir, {
+        optimizeImages: true,
+        minifyHtml: true,
+        quality: 80
+      });
+
+      console.log(`Optimization stats:`, stats);
+      sourceDir = tempDir;
+    }
 
     if (format === 'html') {
       // Download just the HTML file
-      const htmlPath = path.join(cloneDir, 'index-static.html');
+      const htmlPath = path.join(sourceDir, 'index-static.html');
       if (!fsSync.existsSync(htmlPath)) {
+        // Cleanup temp dir if it exists
+        if (tempDir) await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
         return res.status(404).json({ error: 'HTML file not found' });
       }
+
+      // Read and potentially minify the HTML
+      let htmlContent = await fs.readFile(htmlPath, 'utf-8');
+      if (shouldOptimize && !tempDir) {
+        // If optimize but no temp dir (shouldn't happen), still minify
+        htmlContent = await optimizeHtml(htmlContent);
+      }
+
       res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Content-Disposition', `attachment; filename="${safeName}.html"`);
-      const stream = fsSync.createReadStream(htmlPath);
-      stream.pipe(res);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}${shouldOptimize ? '_optimized' : ''}.html"`);
+      res.send(htmlContent);
+
+      // Cleanup temp dir if it exists
+      if (tempDir) await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
     } else {
       // Download as ZIP
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${safeName}.zip"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}${shouldOptimize ? '_optimized' : ''}.zip"`);
 
       const archive = archiver('zip', { zlib: { level: 9 } });
       archive.on('error', (err) => {
         throw err;
       });
+
+      // Cleanup temp dir after archive is finalized
+      archive.on('end', async () => {
+        if (tempDir) {
+          await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+        }
+      });
+
       archive.pipe(res);
 
-      // Add entire clone directory to ZIP
-      archive.directory(cloneDir, safeName);
+      // Add source directory to ZIP
+      archive.directory(sourceDir, safeName);
       await archive.finalize();
     }
   } catch (error) {
@@ -597,7 +804,8 @@ app.get('*', (req, res) => {
 
 // Start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+const HOST = '0.0.0.0';
+server.listen(PORT, HOST, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
