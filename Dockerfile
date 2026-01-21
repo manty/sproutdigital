@@ -2,11 +2,17 @@ FROM mcr.microsoft.com/playwright:v1.49.1-noble
 
 WORKDIR /app
 
+# Install build tools for native modules (sharp)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (sharp needs rebuild for Linux)
+RUN npm install
 
 # Copy application code
 COPY . .
