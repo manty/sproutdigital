@@ -14,7 +14,13 @@ try {
   console.warn('Sharp not available - image optimization disabled');
 }
 
-const { minify: minifyHtml } = require('html-minifier-terser');
+// html-minifier-terser is optional - used for HTML minification
+let minifyHtml = null;
+try {
+  minifyHtml = require('html-minifier-terser').minify;
+} catch (e) {
+  console.warn('html-minifier-terser not available - HTML minification disabled');
+}
 const { clonePage } = require('./cloner');
 
 // ============================================
@@ -118,6 +124,10 @@ async function optimizeImage(inputPath, outputPath, options = {}) {
  * @param {string} html - HTML content to minify
  */
 async function optimizeHtml(html) {
+  // If minifier not available, return original
+  if (!minifyHtml) {
+    return html;
+  }
   try {
     return await minifyHtml(html, {
       collapseWhitespace: true,
