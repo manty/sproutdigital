@@ -2,20 +2,15 @@ FROM mcr.microsoft.com/playwright:v1.49.1-noble
 
 WORKDIR /app
 
-# Install build tools for native modules (sharp)
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy package files
+# Copy package files first
 COPY package*.json ./
 
-# Force fresh install - cache bust v2
-RUN npm cache clean --force && npm install --verbose
+# Install ALL dependencies
+RUN npm install --legacy-peer-deps
 
-# Copy application code
-COPY . .
+# Copy application code (node_modules excluded via .dockerignore)
+COPY server ./server
+COPY public ./public
 
 # Expose port
 EXPOSE 3000
@@ -25,4 +20,4 @@ ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Start the server
-CMD ["npm", "start"]
+CMD ["node", "server/index.js"]
