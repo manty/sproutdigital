@@ -17,7 +17,13 @@ const state = {
     favicon: ''
   },
   selectedImage: null,
-  hasChanges: false
+  hasChanges: false,
+  findReplace: {
+    searchTerm: '',
+    replaceTerm: '',
+    caseSensitive: false,
+    matches: [] // Array of { textNode, text, startIndex, context, selected }
+  }
 };
 
 // DOM Elements
@@ -44,7 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Load clone into iframe
 async function loadClone() {
-  const cloneUrl = `/clone/${state.cloneId}/index.html`;
+  // Use the static version which doesn't have broken JS
+  const cloneUrl = `/clone/${state.cloneId}/index-static.html`;
   previewIframe.src = cloneUrl;
 
   previewIframe.onload = () => {
@@ -148,6 +155,17 @@ function renderLinksList() {
   }
 }
 
+// Resolve image URL relative to clone path
+function resolveImageUrl(src) {
+  if (!src) return '';
+  // Already absolute URL
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:') || src.startsWith('/clone/')) {
+    return src;
+  }
+  // Relative URL - resolve to clone path
+  return `/clone/${state.cloneId}/${src}`;
+}
+
 // Render images list in sidebar
 function renderImagesList() {
   const container = document.getElementById('imagesList');
@@ -156,8 +174,9 @@ function renderImagesList() {
   state.images.forEach((img, idx) => {
     const div = document.createElement('div');
     div.className = 'image-item cursor-pointer';
+    const displaySrc = resolveImageUrl(img.current);
     div.innerHTML = `
-      <img src="${img.current}" class="w-full h-20 object-cover rounded mb-2 bg-gray-900">
+      <img src="${displaySrc}" class="w-full h-20 object-cover rounded mb-2 bg-gray-900">
       <div class="text-xs text-gray-400 truncate">${img.alt || 'Image ' + (idx + 1)}</div>
     `;
     container.appendChild(div);
@@ -212,7 +231,7 @@ function applyGlobalLink() {
 function openImageModal(idx) {
   state.selectedImage = idx;
   const img = state.images[idx];
-  document.getElementById('modalCurrentImage').src = img.current;
+  document.getElementById('modalCurrentImage').src = resolveImageUrl(img.current);
   document.getElementById('modalImageUrl').value = '';
   document.getElementById('imageModal').classList.remove('hidden');
   document.getElementById('imageModal').classList.add('flex');
@@ -575,6 +594,268 @@ function showToast(message) {
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
+// ============================================
+// FIND & REPLACE FUNCTIONALITY
+// ============================================
+
+// Find all text matches in the iframe
+function findTextInPage() {
+  const searchTerm = document.getElementById('findText').value.trim();
+  if (!searchTerm) {
+    showToast('Please enter text to find');
+    return;
+  }
+
+  state.findReplace.searchTerm = searchTerm;
+  state.findReplace.caseSensitive = document.getElementById('caseSensitive').checked;
+  state.findReplace.matches = [];
+
+  // Clear any existing highlights
+  clearFindHighlights();
+
+  try {
+    const doc = previewIframe.contentDocument;
+    const walker = doc.createTreeWalker(
+      doc.body,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    const searchStr = state.findReplace.caseSensitive ? searchTerm : searchTerm.toLowerCase();
+    let node;
+
+    while (node = walker.nextNode()) {
+      const text = node.textContent;
+      const searchIn = state.findReplace.caseSensitive ? text : text.toLowerCase();
+      let startIndex = 0;
+
+      while ((startIndex = searchIn.indexOf(searchStr, startIndex)) !== -1) {
+        // Get context around the match
+        const contextStart = Math.max(0, startIndex - 20);
+        const contextEnd = Math.min(text.length, startIndex + searchTerm.length + 20);
+        const before = text.substring(contextStart, startIndex);
+        const match = text.substring(startIndex, startIndex + searchTerm.length);
+        const after = text.substring(startIndex + searchTerm.length, contextEnd);
+
+        state.findReplace.matches.push({
+          textNode: node,
+          fullText: text,
+          startIndex: startIndex,
+          matchLength: searchTerm.length,
+          context: {
+            before: (contextStart > 0 ? '...' : '') + before,
+            match: match,
+            after: after + (contextEnd < text.length ? '...' : '')
+          },
+          selected: true
+        });
+
+        startIndex += searchTerm.length;
+      }
+    }
+
+    renderFindResults();
+
+    if (state.findReplace.matches.length > 0) {
+      showToast(`Found ${state.findReplace.matches.length} match(es)`);
+      highlightAllMatches();
+    } else {
+      showToast('No matches found');
+    }
+  } catch (e) {
+    console.error('Error finding text:', e);
+    showToast('Error searching page');
+  }
+}
+
+// Render the list of matches in the sidebar
+function renderFindResults() {
+  const container = document.getElementById('matchesList');
+  const countEl = document.getElementById('matchCount');
+  const matches = state.findReplace.matches;
+
+  container.innerHTML = '';
+  countEl.textContent = matches.length > 0
+    ? `Found ${matches.length} match(es)`
+    : 'No matches';
+
+  if (matches.length === 0) {
+    container.innerHTML = '<p class="text-gray-500 text-sm">No matches found</p>';
+    return;
+  }
+
+  matches.forEach((match, idx) => {
+    const div = document.createElement('div');
+    div.className = `match-item flex items-start gap-2 ${match.selected ? 'selected' : ''}`;
+    div.innerHTML = `
+      <input type="checkbox" class="mt-1 w-4 h-4" ${match.selected ? 'checked' : ''} data-match-idx="${idx}">
+      <div class="flex-1 text-gray-300 overflow-hidden">
+        <span class="text-gray-500">${escapeHtml(match.context.before)}</span><span class="match-highlight">${escapeHtml(match.context.match)}</span><span class="text-gray-500">${escapeHtml(match.context.after)}</span>
+      </div>
+    `;
+    container.appendChild(div);
+
+    // Click on item to scroll to match
+    div.addEventListener('click', (e) => {
+      if (e.target.type !== 'checkbox') {
+        scrollToMatch(idx);
+      }
+    });
+
+    // Checkbox toggle
+    div.querySelector('input').addEventListener('change', (e) => {
+      state.findReplace.matches[idx].selected = e.target.checked;
+      div.classList.toggle('selected', e.target.checked);
+      updateReplaceButtonCount();
+    });
+  });
+
+  updateReplaceButtonCount();
+}
+
+// Escape HTML for safe display
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Update the "Replace Selected (N)" button text
+function updateReplaceButtonCount() {
+  const selectedCount = state.findReplace.matches.filter(m => m.selected).length;
+  document.getElementById('replaceSelectedBtn').textContent = `Replace Selected (${selectedCount})`;
+}
+
+// Highlight all matches in the iframe
+function highlightAllMatches() {
+  try {
+    const doc = previewIframe.contentDocument;
+
+    // Inject highlight style if not already
+    if (!doc.getElementById('find-highlight-style')) {
+      const style = doc.createElement('style');
+      style.id = 'find-highlight-style';
+      style.textContent = `
+        .find-highlight {
+          background-color: #ffff00 !important;
+          color: #000 !important;
+          padding: 0 2px;
+          border-radius: 2px;
+        }
+        .find-highlight-active {
+          background-color: #ff8800 !important;
+          outline: 2px solid #ff8800;
+        }
+      `;
+      doc.head.appendChild(style);
+    }
+  } catch (e) {
+    console.error('Error adding highlight styles:', e);
+  }
+}
+
+// Scroll to and highlight a specific match
+function scrollToMatch(idx) {
+  try {
+    const match = state.findReplace.matches[idx];
+    if (!match || !match.textNode.parentElement) return;
+
+    const parent = match.textNode.parentElement;
+
+    // Remove active class from all
+    const doc = previewIframe.contentDocument;
+    doc.querySelectorAll('.find-highlight-active').forEach(el => {
+      el.classList.remove('find-highlight-active');
+    });
+
+    // Scroll to element
+    parent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Flash highlight
+    parent.style.transition = 'background-color 0.3s';
+    parent.style.backgroundColor = '#ff8800';
+    setTimeout(() => {
+      parent.style.backgroundColor = '';
+    }, 1500);
+  } catch (e) {
+    console.error('Error scrolling to match:', e);
+  }
+}
+
+// Clear all find highlights
+function clearFindHighlights() {
+  try {
+    const doc = previewIframe.contentDocument;
+    const style = doc.getElementById('find-highlight-style');
+    if (style) style.remove();
+  } catch (e) {
+    console.error('Error clearing highlights:', e);
+  }
+}
+
+// Replace selected matches
+function replaceSelected() {
+  const replaceTerm = document.getElementById('replaceText').value;
+  const selectedMatches = state.findReplace.matches.filter(m => m.selected);
+
+  if (selectedMatches.length === 0) {
+    showToast('No matches selected');
+    return;
+  }
+
+  // Sort by position descending to replace from end to start (preserves indices)
+  const sortedMatches = [...selectedMatches].sort((a, b) => {
+    if (a.textNode === b.textNode) {
+      return b.startIndex - a.startIndex;
+    }
+    return 0;
+  });
+
+  // Group by text node
+  const nodeGroups = new Map();
+  sortedMatches.forEach(match => {
+    if (!nodeGroups.has(match.textNode)) {
+      nodeGroups.set(match.textNode, []);
+    }
+    nodeGroups.get(match.textNode).push(match);
+  });
+
+  // Replace in each node
+  nodeGroups.forEach((matches, textNode) => {
+    let text = textNode.textContent;
+    // Sort matches by startIndex descending for this node
+    matches.sort((a, b) => b.startIndex - a.startIndex);
+
+    matches.forEach(match => {
+      text = text.substring(0, match.startIndex) +
+             replaceTerm +
+             text.substring(match.startIndex + match.matchLength);
+    });
+
+    textNode.textContent = text;
+  });
+
+  state.hasChanges = true;
+  showToast(`Replaced ${selectedMatches.length} match(es)`);
+
+  // Re-search to update the list
+  findTextInPage();
+}
+
+// Replace all matches
+function replaceAll() {
+  // Select all first
+  state.findReplace.matches.forEach(m => m.selected = true);
+  replaceSelected();
+}
+
+// Select/Deselect all matches
+function selectAllMatches(select) {
+  state.findReplace.matches.forEach(m => m.selected = select);
+  renderFindResults();
+}
+
 // Device preview
 function changeDevice(device) {
   const iframe = previewIframe;
@@ -639,13 +920,13 @@ function setupEventListeners() {
 
   // Preview button
   document.getElementById('previewBtn').addEventListener('click', () => {
-    window.open(`/clone/${state.cloneId}/index.html`, '_blank');
+    window.open(`/clone/${state.cloneId}/index-static.html`, '_blank');
   });
 
   // Publish button
   document.getElementById('publishBtn').addEventListener('click', async () => {
     await saveChanges();
-    const url = `${window.location.origin}/clone/${state.cloneId}/index.html`;
+    const url = `${window.location.origin}/clone/${state.cloneId}/index-static.html`;
     prompt('Your page is live at:', url);
   });
 
@@ -695,6 +976,18 @@ function setupEventListeners() {
   document.getElementById('customBodyCode').addEventListener('change', (e) => {
     state.pixels.customBody = e.target.value;
     state.hasChanges = true;
+  });
+
+  // Find & Replace event listeners
+  document.getElementById('findBtn').addEventListener('click', findTextInPage);
+  document.getElementById('replaceSelectedBtn').addEventListener('click', replaceSelected);
+  document.getElementById('replaceAllBtn').addEventListener('click', replaceAll);
+  document.getElementById('selectAllBtn').addEventListener('click', () => selectAllMatches(true));
+  document.getElementById('deselectAllBtn').addEventListener('click', () => selectAllMatches(false));
+
+  // Allow Enter key to trigger find
+  document.getElementById('findText').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') findTextInPage();
   });
 
   // Warn before leaving with unsaved changes

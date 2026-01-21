@@ -228,9 +228,9 @@ app.post('/api/editor/save', async (req, res) => {
       return res.status(404).json({ error: 'Clone not found' });
     }
 
-    // Save the HTML
+    // Save the HTML to the static version (which the editor uses)
     if (html) {
-      const indexPath = path.join(cloneDir, 'index.html');
+      const indexPath = path.join(cloneDir, 'index-static.html');
       await fs.writeFile(indexPath, html, 'utf-8');
     }
 

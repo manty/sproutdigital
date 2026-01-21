@@ -27,11 +27,13 @@
     }
 
     .tab-btn {
-      padding: 12px 16px;
+      padding: 10px 12px;
       color: #888;
       border-bottom: 2px solid transparent;
       cursor: pointer;
       transition: all 0.2s;
+      font-size: 13px;
+      white-space: nowrap;
     }
 
     .tab-btn.active {
@@ -89,7 +91,7 @@
       background: #444;
     }
 
-    .link-item, .image-item, .pixel-item {
+    .link-item, .image-item, .pixel-item, .match-item {
       background: #0a0a1a;
       border: 1px solid #333;
       border-radius: 8px;
@@ -97,8 +99,26 @@
       margin-bottom: 10px;
     }
 
-    .link-item:hover, .image-item:hover {
+    .link-item:hover, .image-item:hover, .match-item:hover {
       border-color: #00ff88;
+    }
+
+    .match-item {
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .match-item.selected {
+      border-color: #00ff88;
+      background: rgba(0, 255, 136, 0.1);
+    }
+
+    .match-highlight {
+      background: #ffff00;
+      color: #000;
+      padding: 0 2px;
+      border-radius: 2px;
+      font-weight: 600;
     }
 
     .edit-highlight {
@@ -158,9 +178,10 @@
     </div>
 
     <!-- Tabs -->
-    <div class="flex border-b border-gray-700">
+    <div class="flex border-b border-gray-700 overflow-x-auto">
       <button class="tab-btn active" data-tab="links">Links</button>
       <button class="tab-btn" data-tab="images">Images</button>
+      <button class="tab-btn" data-tab="copy">Copy</button>
       <button class="tab-btn" data-tab="pixels">Pixels</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
     </div>
@@ -195,6 +216,46 @@
         <div id="imagesList" class="space-y-2">
           <!-- Images will be populated here -->
         </div>
+      </div>
+    </div>
+
+    <!-- Copy (Find & Replace) Panel -->
+    <div class="panel p-4" id="panel-copy">
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Find text</label>
+        <input type="text" id="findText" class="input-field" placeholder="Text to find...">
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Replace with</label>
+        <input type="text" id="replaceText" class="input-field" placeholder="Replacement text...">
+      </div>
+
+      <div class="mb-4">
+        <label class="flex items-center gap-2 text-sm text-gray-400">
+          <input type="checkbox" id="caseSensitive" class="w-4 h-4">
+          <span>Case sensitive</span>
+        </label>
+      </div>
+
+      <button id="findBtn" class="btn-primary w-full mb-4">Find Matches</button>
+
+      <div class="border-t border-gray-700 pt-4">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-sm font-semibold text-gray-300" id="matchCount">No matches yet</h3>
+          <div class="flex gap-2">
+            <button id="selectAllBtn" class="text-xs text-cyan-400 hover:text-cyan-300">Select All</button>
+            <button id="deselectAllBtn" class="text-xs text-gray-400 hover:text-gray-300">Deselect</button>
+          </div>
+        </div>
+        <div id="matchesList" class="space-y-2 max-h-64 overflow-y-auto">
+          <p class="text-gray-500 text-sm">Enter text and click "Find Matches"</p>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button id="replaceSelectedBtn" class="btn-secondary flex-1 text-sm">Replace Selected</button>
+        <button id="replaceAllBtn" class="btn-primary flex-1 text-sm">Replace All</button>
       </div>
     </div>
 

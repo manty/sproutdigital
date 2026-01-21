@@ -470,12 +470,113 @@ async function clonePage(url, emit, options = {}) {
     await fs.writeFile(outputHtml, html, 'utf-8');
 
     // Also create a static version with ALL scripts stripped (for preview without JS errors)
-    const staticHtml = html
+    let staticHtml = html
       // Remove ALL script tags
       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<script\b[^>]*\/>/gi, '')
       // Remove noscript tags but keep content (show it since we're removing scripts)
       .replace(/<noscript>([\s\S]*?)<\/noscript>/gi, '$1');
+
+    // Inject minimal menu toggle script for common patterns (hamburger menus, drawers)
+    const menuToggleScript = `
+<script data-cloner-ui="menu-toggle">
+(function() {
+  // Find hamburger/menu buttons (common patterns)
+  const menuTriggers = document.querySelectorAll(
+    '[class*="hamburger"], [class*="menu-btn"], [aria-label*="menu"], ' +
+    'button:has(svg[class*="menu"]), header button:has(svg), ' +
+    '[class*="mobile-menu"], .burger, [class*="nav-toggle"]'
+  );
+
+  // Find drawer/sidebar menus (common patterns)
+  const findDrawer = () => {
+    return document.querySelector(
+      '[class*="drawer"]:not([class*="trigger"]), [class*="sidebar"], ' +
+      '[class*="mobile-nav"], [class*="nav-menu"], .menu[class*="fixed"], ' +
+      'nav[class*="fixed"], [class*="slide-menu"]'
+    ) || document.querySelector('.menu')?.closest('[class*="fixed"]');
+  };
+
+  // Find close button inside drawer
+  const findCloseBtn = (drawer) => {
+    return drawer?.querySelector(
+      '[class*="close"], svg[class*="x"], [aria-label*="close"], ' +
+      'button:has(svg[class*="x"]), [class*="lucide-x"]'
+    )?.closest('button, div[class*="cursor"], svg');
+  };
+
+  let drawer = findDrawer();
+  let isOpen = false;
+
+  const toggleMenu = () => {
+    if (!drawer) drawer = findDrawer();
+    if (!drawer) return;
+
+    isOpen = !isOpen;
+
+    // Handle left-positioned drawers (negative left margin)
+    if (drawer.className.includes('-left-')) {
+      const classes = drawer.className.split(' ');
+      if (isOpen) {
+        drawer.className = classes.map(c => c.startsWith('-left-') ? 'left-0' : c).join(' ');
+      } else {
+        drawer.className = classes.map(c => c === 'left-0' ? '-left-72' : c).join(' ');
+      }
+    }
+    // Handle right-positioned drawers
+    else if (drawer.className.includes('-right-')) {
+      const classes = drawer.className.split(' ');
+      if (isOpen) {
+        drawer.className = classes.map(c => c.startsWith('-right-') ? 'right-0' : c).join(' ');
+      } else {
+        drawer.className = classes.map(c => c === 'right-0' ? '-right-72' : c).join(' ');
+      }
+    }
+    // Handle transform-based drawers
+    else if (drawer.style.transform || drawer.className.includes('translate')) {
+      drawer.style.transform = isOpen ? 'translateX(0)' : '';
+    }
+    // Handle display/visibility
+    else {
+      drawer.style.display = isOpen ? 'block' : 'none';
+    }
+  };
+
+  // Attach click handlers to menu triggers
+  menuTriggers.forEach(trigger => {
+    trigger.style.cursor = 'pointer';
+    trigger.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMenu();
+    });
+  });
+
+  // Attach close handler if drawer exists
+  if (drawer) {
+    const closeBtn = findCloseBtn(drawer);
+    if (closeBtn) {
+      closeBtn.style.cursor = 'pointer';
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isOpen) toggleMenu();
+      });
+    }
+  }
+
+  // Close on overlay click
+  document.addEventListener('click', (e) => {
+    if (isOpen && drawer && !drawer.contains(e.target)) {
+      const isTrigger = Array.from(menuTriggers).some(t => t.contains(e.target));
+      if (!isTrigger) toggleMenu();
+    }
+  });
+})();
+</script>`;
+
+    // Inject before closing body tag
+    staticHtml = staticHtml.replace('</body>', menuToggleScript + '</body>');
 
     const staticOutputHtml = path.join(outputDir, 'index-static.html');
     await fs.writeFile(staticOutputHtml, staticHtml, 'utf-8');
