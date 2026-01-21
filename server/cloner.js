@@ -65,10 +65,38 @@ async function clonePage(url, emit, options = {}) {
     // Step 2: Launch browser
     emit('step', 'launch');
     emit('pipeline', 'Launching Chromium browser...');
-    browser = await chromium.launch({
+
+    // Log browser path for debugging
+    const browserPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+    emit('pipeline', `Browser path env: ${browserPath || 'not set'}`);
+
+    // Try to find chromium executable
+    const possiblePaths = [
+      '/ms-playwright/chromium-1200/chrome-linux/chrome',
+      '/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-linux64/chrome-headless-shell',
+      process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    ].filter(Boolean);
+
+    let executablePath = null;
+    const fsSync = require('fs');
+    for (const p of possiblePaths) {
+      if (fsSync.existsSync(p)) {
+        executablePath = p;
+        emit('pipeline', `Found browser at: ${p}`);
+        break;
+      }
+    }
+
+    const launchOptions = {
       headless,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    };
+
+    if (executablePath) {
+      launchOptions.executablePath = executablePath;
+    }
+
+    browser = await chromium.launch(launchOptions);
 
     const context = await browser.newContext({
       viewport: { width: 1366, height: 768 },
