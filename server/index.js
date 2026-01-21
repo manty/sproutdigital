@@ -1,3 +1,7 @@
+// Set Playwright browser path FIRST - before any requires
+process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || '/ms-playwright';
+console.log('PLAYWRIGHT_BROWSERS_PATH set to:', process.env.PLAYWRIGHT_BROWSERS_PATH);
+
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');

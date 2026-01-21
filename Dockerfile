@@ -2,33 +2,30 @@ FROM mcr.microsoft.com/playwright:v1.57.0-noble
 
 WORKDIR /app
 
-# Set browser path
+# Set browser path FIRST - before any npm commands
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV NODE_ENV=production
 
-# Copy package files first
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies without postinstall
+# Install dependencies (skip postinstall, we'll install browsers separately)
 RUN npm install --legacy-peer-deps --ignore-scripts
 
-# Install Playwright browsers explicitly to /ms-playwright
-RUN npx playwright install chromium
+# Verify browsers exist in the image (they should be pre-installed)
+RUN echo "=== Checking browser installation ===" && \
+    ls -la /ms-playwright/ && \
+    find /ms-playwright -name "chrome" -o -name "chrome-headless-shell" | head -10
 
-# List what we have for debugging
-RUN ls -la /ms-playwright/ && find /ms-playwright -name "chrome*" -type f | head -5
+# Create output directory for cloned sites
+RUN mkdir -p /app/output && chmod 777 /app/output
 
 # Copy application code
 COPY server ./server
 COPY public ./public
 
-# Create output directory for cloned sites
-RUN mkdir -p /app/output && chmod 777 /app/output
-
 # Expose port
 EXPOSE 3000
-
-# Set runtime environment
-ENV NODE_ENV=production
 
 # Start the server
 CMD ["node", "server/index.js"]
