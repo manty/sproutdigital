@@ -21,6 +21,9 @@ RUN ls -la /ms-playwright/ && find /ms-playwright -name "chrome*" -type f | head
 COPY server ./server
 COPY public ./public
 
+# Create output directory for cloned sites
+RUN mkdir -p /app/output && chmod 777 /app/output
+
 # Expose port
 EXPOSE 3000
 
