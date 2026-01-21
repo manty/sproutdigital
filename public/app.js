@@ -252,7 +252,7 @@ function handleComplete(result) {
   resultSection.classList.remove('hidden');
   outputPath.textContent = result.folderName;
   assetsInfo.textContent = `${result.assetsDownloaded} downloaded, ${result.assetsFailed} failed`;
-  openCloneLink.href = result.openUrl;
+  openCloneLink.href = result.staticUrl || result.openUrl;
   editCloneLink.href = `/editor.html?id=${result.folderName}`;
 
   addLog('pipeline', 'Clone completed successfully!');

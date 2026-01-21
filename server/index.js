@@ -180,7 +180,7 @@ app.get('/api/clones', async (req, res) => {
           clones.push({
             id: folder,
             createdAt: stat.mtime,
-            previewUrl: `/clone/${folder}/index.html`,
+            previewUrl: `/clone/${folder}/index-static.html`,
             editUrl: `/editor.html?id=${folder}`
           });
         }
