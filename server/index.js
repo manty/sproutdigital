@@ -5,7 +5,15 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const archiver = require('archiver');
-const sharp = require('sharp');
+
+// Sharp is optional - used for image optimization
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('Sharp not available - image optimization disabled');
+}
+
 const { minify: minifyHtml } = require('html-minifier-terser');
 const { clonePage } = require('./cloner');
 
@@ -40,6 +48,12 @@ async function writeMetadata(metadata) {
  */
 async function optimizeImage(inputPath, outputPath, options = {}) {
   const { quality = 80, maxWidth = 1920, maxHeight = 1080 } = options;
+
+  // If sharp is not available, just copy the file
+  if (!sharp) {
+    await fs.copyFile(inputPath, outputPath);
+    return { optimized: false, reason: 'sharp not available' };
+  }
 
   try {
     const ext = path.extname(inputPath).toLowerCase();

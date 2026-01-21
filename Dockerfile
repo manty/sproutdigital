@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y \
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (sharp needs rebuild for Linux)
-RUN npm install
+# Force fresh install - cache bust v2
+RUN npm cache clean --force && npm install --verbose
 
 # Copy application code
 COPY . .
