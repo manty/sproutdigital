@@ -15,6 +15,31 @@ const {
 } = require('./utils');
 
 /**
+ * Extract actual image URL from Next.js image proxy URLs
+ * e.g., /api/proxy-fastimage?source=https%3A%2F%2Fcdn.example.com%2Fimage.jpg
+ */
+function extractProxyImageUrl(url) {
+  try {
+    const parsed = new URL(url, 'http://dummy');
+    const pathname = parsed.pathname;
+
+    // Check for common Next.js image proxy patterns
+    if (pathname.includes('/api/') && pathname.includes('image') ||
+        pathname.includes('/_next/image') ||
+        pathname.includes('proxy')) {
+      // Try to extract source URL from query params
+      const source = parsed.searchParams.get('source') ||
+                     parsed.searchParams.get('url') ||
+                     parsed.searchParams.get('src');
+      if (source) {
+        return decodeURIComponent(source);
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/**
  * Main cloning pipeline
  * @param {string} url - URL to clone
  * @param {function} emit - Function to emit log events
@@ -130,20 +155,48 @@ async function clonePage(url, emit, options = {}) {
     const root = parseHtml(html, { comment: true });
 
     const assetUrls = new Map(); // url -> local path mapping
+    const proxyUrlMap = new Map(); // proxy url -> real url mapping
+
+    // Helper to add URL with proxy detection
+    function addAssetUrl(url) {
+      if (!url || isDataUrl(url)) return;
+      const resolvedUrl = resolveUrl(finalUrl, url);
+
+      // Check if this is a proxy URL
+      const realUrl = extractProxyImageUrl(resolvedUrl);
+      if (realUrl) {
+        // Store mapping from proxy to real URL
+        proxyUrlMap.set(resolvedUrl, realUrl);
+        // Download the real URL
+        if (!realUrl.startsWith('/')) {
+          assetUrls.set(realUrl, null);
+        } else {
+          assetUrls.set(resolveUrl(finalUrl, realUrl), null);
+        }
+      } else {
+        assetUrls.set(resolvedUrl, null);
+      }
+    }
 
     // Collect image sources
     root.querySelectorAll('img[src]').forEach(el => {
       const src = el.getAttribute('src');
-      if (src && !isDataUrl(src)) {
-        assetUrls.set(resolveUrl(finalUrl, src), null);
-      }
+      addAssetUrl(src);
     });
 
     // Collect srcset
     root.querySelectorAll('[srcset]').forEach(el => {
       const srcset = el.getAttribute('srcset');
       parseSrcset(srcset).forEach(url => {
-        assetUrls.set(resolveUrl(finalUrl, url), null);
+        addAssetUrl(url);
+      });
+    });
+
+    // Collect imagesrcset (used by Next.js preload)
+    root.querySelectorAll('[imagesrcset]').forEach(el => {
+      const srcset = el.getAttribute('imagesrcset');
+      parseSrcset(srcset).forEach(url => {
+        addAssetUrl(url);
       });
     });
 
@@ -307,6 +360,36 @@ async function clonePage(url, emit, options = {}) {
       }
     }
 
+    // Also map proxy URLs to the local path of their real images
+    for (const [proxyUrl, realUrl] of proxyUrlMap) {
+      // Find the local path for the real URL
+      let localPath = assetUrls.get(realUrl);
+      if (!localPath) {
+        // Try resolving the real URL
+        localPath = assetUrls.get(resolveUrl(finalUrl, realUrl));
+      }
+      if (localPath) {
+        urlReplacements.set(proxyUrl, localPath);
+        // Also add variations of the proxy URL
+        try {
+          const parsed = new URL(proxyUrl);
+          const pathWithSearch = parsed.pathname + parsed.search;
+          urlReplacements.set(pathWithSearch, localPath);
+          // Add HTML-encoded version (& -> &amp;)
+          urlReplacements.set(pathWithSearch.replace(/&/g, '&amp;'), localPath);
+        } catch {}
+      }
+    }
+
+    // Add HTML-encoded versions of all URLs with query strings
+    const additionalReplacements = [];
+    for (const [url, localPath] of urlReplacements) {
+      if (url.includes('&') && !url.includes('&amp;')) {
+        additionalReplacements.push([url.replace(/&/g, '&amp;'), localPath]);
+      }
+    }
+    additionalReplacements.forEach(([url, path]) => urlReplacements.set(url, path));
+
     // Sort replacements by length (longest first) to avoid partial replacements
     const sortedReplacements = [...urlReplacements.entries()].sort((a, b) => b[0].length - a[0].length);
 
@@ -353,11 +436,49 @@ async function clonePage(url, emit, options = {}) {
       return match;
     });
 
+    // Rewrite srcset and imagesrcset attributes containing proxy URLs
+    html = html.replace(/(srcset|imagesrcset)="([^"]+)"/gi, (match, attr, srcsetValue) => {
+      // Check if this srcset contains proxy URLs
+      if (!srcsetValue.includes('/api/') && !srcsetValue.includes('proxy')) {
+        return match;
+      }
+
+      // Extract the first proxy URL and find its source image
+      const proxyMatch = srcsetValue.match(/\/api\/[^?\s]+\?[^\s,]+/);
+      if (proxyMatch) {
+        const proxyUrl = proxyMatch[0].replace(/&amp;/g, '&');
+        const realUrl = extractProxyImageUrl('http://dummy' + proxyUrl);
+        if (realUrl) {
+          // Find local path for this image
+          let localPath = assetUrls.get(realUrl);
+          if (!localPath && !realUrl.startsWith('http')) {
+            localPath = assetUrls.get(resolveUrl(finalUrl, realUrl));
+          }
+          if (localPath) {
+            // Replace entire srcset with just the local path
+            return `${attr}="${localPath}"`;
+          }
+        }
+      }
+      return match;
+    });
+
     // Step 11: Save output
     emit('step', 'save');
     emit('pipeline', 'Saving cloned page...');
     const outputHtml = path.join(outputDir, 'index.html');
     await fs.writeFile(outputHtml, html, 'utf-8');
+
+    // Also create a static version with ALL scripts stripped (for preview without JS errors)
+    const staticHtml = html
+      // Remove ALL script tags
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<script\b[^>]*\/>/gi, '')
+      // Remove noscript tags but keep content (show it since we're removing scripts)
+      .replace(/<noscript>([\s\S]*?)<\/noscript>/gi, '$1');
+
+    const staticOutputHtml = path.join(outputDir, 'index-static.html');
+    await fs.writeFile(staticOutputHtml, staticHtml, 'utf-8');
 
     emit('pipeline', `Clone saved to: ${outputDir}`);
     emit('step', 'done');
@@ -367,6 +488,7 @@ async function clonePage(url, emit, options = {}) {
       folderName,
       outputPath: outputDir,
       openUrl: `/clone/${folderName}/index.html`,
+      staticUrl: `/clone/${folderName}/index-static.html`,
       assetsDownloaded: downloaded,
       assetsFailed: failed,
     };
