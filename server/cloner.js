@@ -477,100 +477,313 @@ async function clonePage(url, emit, options = {}) {
       // Remove noscript tags but keep content (show it since we're removing scripts)
       .replace(/<noscript>([\s\S]*?)<\/noscript>/gi, '$1');
 
-    // Inject minimal menu toggle script for common patterns (hamburger menus, drawers)
+    // Inject comprehensive interactivity script for static clones
     const menuToggleScript = `
 <script data-cloner-ui="menu-toggle">
 (function() {
-  // Find hamburger/menu buttons (common patterns)
-  const menuTriggers = document.querySelectorAll(
-    '[class*="hamburger"], [class*="menu-btn"], [aria-label*="menu"], ' +
-    'button:has(svg[class*="menu"]), header button:has(svg), ' +
-    '[class*="mobile-menu"], .burger, [class*="nav-toggle"]'
-  );
+  // =============================================
+  // PART 1: CSS CHECKBOX DRAWER (cart sidebar)
+  // =============================================
 
-  // Find drawer/sidebar menus (common patterns)
-  const findDrawer = () => {
-    return document.querySelector(
-      '[class*="drawer"]:not([class*="trigger"]), [class*="sidebar"], ' +
-      '[class*="mobile-nav"], [class*="nav-menu"], .menu[class*="fixed"], ' +
-      'nav[class*="fixed"], [class*="slide-menu"]'
-    ) || document.querySelector('.menu')?.closest('[class*="fixed"]');
-  };
+  const drawerCheckbox = document.querySelector('#Drawer__checkbox, [class*="drawer"] input[type="checkbox"]');
+  const drawerNav = document.querySelector('nav.Drawer__container, nav[class*="Drawer"]');
 
-  // Find close button inside drawer
-  const findCloseBtn = (drawer) => {
-    return drawer?.querySelector(
-      '[class*="close"], svg[class*="x"], [aria-label*="close"], ' +
-      'button:has(svg[class*="x"]), [class*="lucide-x"]'
-    )?.closest('button, div[class*="cursor"], svg');
-  };
+  if (drawerCheckbox && drawerNav) {
+    const originalTransform = drawerNav.style.transform || 'translate3d(100%, 0px, 0px)';
 
-  let drawer = findDrawer();
-  let isOpen = false;
+    // Find cart buttons (usually have cart icon SVG)
+    const cartButtons = document.querySelectorAll(
+      'button[class*="cursor-pointer"]:has(svg), ' +
+      '[class*="cart-btn"], [class*="cart-icon"]'
+    );
 
-  const toggleMenu = () => {
-    if (!drawer) drawer = findDrawer();
-    if (!drawer) return;
-
-    isOpen = !isOpen;
-
-    // Handle left-positioned drawers (negative left margin)
-    if (drawer.className.includes('-left-')) {
-      const classes = drawer.className.split(' ');
-      if (isOpen) {
-        drawer.className = classes.map(c => c.startsWith('-left-') ? 'left-0' : c).join(' ');
-      } else {
-        drawer.className = classes.map(c => c === 'left-0' ? '-left-72' : c).join(' ');
+    const toggleDrawer = () => {
+      drawerCheckbox.checked = !drawerCheckbox.checked;
+      drawerNav.style.transform = drawerCheckbox.checked ? 'translate3d(0, 0, 0)' : originalTransform;
+      const overlay = document.querySelector('.Drawer__overlay');
+      if (overlay) {
+        overlay.style.display = drawerCheckbox.checked ? 'block' : 'none';
+        overlay.style.opacity = drawerCheckbox.checked ? '1' : '0';
       }
-    }
-    // Handle right-positioned drawers
-    else if (drawer.className.includes('-right-')) {
-      const classes = drawer.className.split(' ');
-      if (isOpen) {
-        drawer.className = classes.map(c => c.startsWith('-right-') ? 'right-0' : c).join(' ');
-      } else {
-        drawer.className = classes.map(c => c === 'right-0' ? '-right-72' : c).join(' ');
-      }
-    }
-    // Handle transform-based drawers
-    else if (drawer.style.transform || drawer.className.includes('translate')) {
-      drawer.style.transform = isOpen ? 'translateX(0)' : '';
-    }
-    // Handle display/visibility
-    else {
-      drawer.style.display = isOpen ? 'block' : 'none';
-    }
-  };
+    };
 
-  // Attach click handlers to menu triggers
-  menuTriggers.forEach(trigger => {
-    trigger.style.cursor = 'pointer';
-    trigger.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleMenu();
+    // Wire up cart buttons (filter to only those in header area)
+    cartButtons.forEach(btn => {
+      const rect = btn.getBoundingClientRect();
+      if (rect.top < 100) { // Only header buttons
+        btn.style.cursor = 'pointer';
+        btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleDrawer(); });
+      }
     });
-  });
 
-  // Attach close handler if drawer exists
-  if (drawer) {
-    const closeBtn = findCloseBtn(drawer);
+    // Close button inside drawer
+    const closeBtn = drawerNav.querySelector('button:has(svg)');
     if (closeBtn) {
       closeBtn.style.cursor = 'pointer';
-      closeBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (isOpen) toggleMenu();
-      });
+      closeBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (drawerCheckbox.checked) toggleDrawer(); });
+    }
+
+    // Overlay click to close
+    const overlay = document.querySelector('.Drawer__overlay');
+    if (overlay) {
+      overlay.style.cursor = 'pointer';
+      overlay.addEventListener('click', () => { if (drawerCheckbox.checked) toggleDrawer(); });
     }
   }
 
-  // Close on overlay click
-  document.addEventListener('click', (e) => {
-    if (isOpen && drawer && !drawer.contains(e.target)) {
-      const isTrigger = Array.from(menuTriggers).some(t => t.contains(e.target));
-      if (!isTrigger) toggleMenu();
+  // =============================================
+  // PART 2: PRODUCT BUNDLE OPTIONS (Get 1/2/3)
+  // =============================================
+
+  const bundleButtons = Array.from(document.querySelectorAll('button')).filter(b =>
+    b.textContent?.includes('Get') && (b.textContent?.includes('AirFlow') || b.textContent?.includes('Strap') || b.textContent?.includes('SAVE'))
+  );
+
+  if (bundleButtons.length > 0) {
+    // Add visual selection state
+    const selectBundle = (selectedBtn) => {
+      bundleButtons.forEach(btn => {
+        if (btn === selectedBtn) {
+          btn.style.border = '2px solid #10b981';
+          btn.style.background = 'rgba(16, 185, 129, 0.1)';
+          btn.setAttribute('data-selected', 'true');
+        } else {
+          btn.style.border = '';
+          btn.style.background = '';
+          btn.removeAttribute('data-selected');
+        }
+      });
+    };
+
+    // Select first bundle by default
+    if (bundleButtons[0]) selectBundle(bundleButtons[0]);
+
+    bundleButtons.forEach(btn => {
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        selectBundle(btn);
+      });
+    });
+  }
+
+  // =============================================
+  // PART 3: ADD TO CART BUTTONS
+  // =============================================
+
+  const addToCartBtns = Array.from(document.querySelectorAll('button')).filter(b =>
+    b.textContent?.toLowerCase().includes('add to cart')
+  );
+
+  addToCartBtns.forEach(btn => {
+    btn.style.cursor = 'pointer';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Open cart drawer if it exists
+      if (drawerCheckbox && !drawerCheckbox.checked) {
+        drawerCheckbox.checked = true;
+        if (drawerNav) drawerNav.style.transform = 'translate3d(0, 0, 0)';
+        const overlay = document.querySelector('.Drawer__overlay');
+        if (overlay) { overlay.style.display = 'block'; overlay.style.opacity = '1'; }
+      }
+      // Show feedback
+      const originalText = btn.textContent;
+      btn.textContent = 'Added!';
+      btn.style.background = '#10b981';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '';
+      }, 1500);
+    });
+  });
+
+  // =============================================
+  // PART 4: QUANTITY +/- BUTTONS (using aria-label)
+  // =============================================
+
+  // Find all minus/plus button pairs by aria-label
+  const minusBtns = document.querySelectorAll('button[aria-label="minusButton"]');
+  const plusBtns = document.querySelectorAll('button[aria-label="plusButton"]');
+
+  // Process each pair
+  minusBtns.forEach((minusBtn, index) => {
+    const plusBtn = plusBtns[index];
+    if (!plusBtn) return;
+
+    // Find the quantity display between the buttons (usually a span or div with just a number)
+    const parent = minusBtn.parentElement;
+    const display = parent?.querySelector('span, div:not(button)');
+    let qty = parseInt(display?.textContent || '1') || 1;
+
+    // Remove disabled attribute so buttons work
+    minusBtn.removeAttribute('disabled');
+    plusBtn.removeAttribute('disabled');
+    minusBtn.style.cursor = 'pointer';
+    plusBtn.style.cursor = 'pointer';
+    minusBtn.style.opacity = '1';
+    plusBtn.style.opacity = '1';
+
+    minusBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (qty > 1) {
+        qty--;
+        if (display) display.textContent = qty;
+      }
+    });
+
+    plusBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      qty++;
+      if (display) display.textContent = qty;
+    });
+  });
+
+  // =============================================
+  // PART 5: IMAGE CAROUSEL/THUMBNAILS
+  // =============================================
+
+  const mainImage = document.querySelector('[class*="main-image"], [class*="product-image"] img, [class*="gallery"] img:first-of-type');
+  const thumbnails = document.querySelectorAll('[class*="thumbnail"] img, [class*="gallery"] img');
+
+  if (mainImage && thumbnails.length > 1) {
+    thumbnails.forEach(thumb => {
+      thumb.style.cursor = 'pointer';
+      thumb.addEventListener('click', () => {
+        mainImage.src = thumb.src;
+        thumbnails.forEach(t => t.style.opacity = t === thumb ? '1' : '0.5');
+      });
+    });
+  }
+
+  // Carousel arrows
+  const carouselArrows = document.querySelectorAll('button[class*="absolute"]');
+  carouselArrows.forEach(arrow => {
+    const rect = arrow.getBoundingClientRect();
+    if (rect.width < 60 && rect.height < 60) {
+      arrow.style.cursor = 'pointer';
     }
+  });
+
+  // =============================================
+  // PART 6: COMBOBOX STATE TOGGLE (visual only)
+  // =============================================
+
+  document.querySelectorAll('[role="combobox"]').forEach(combobox => {
+    combobox.style.cursor = 'pointer';
+    combobox.addEventListener('click', () => {
+      const currentState = combobox.getAttribute('data-state');
+      const newState = currentState === 'open' ? 'closed' : 'open';
+      combobox.setAttribute('data-state', newState);
+      combobox.setAttribute('aria-expanded', String(newState === 'open'));
+      // Rotate chevron if present
+      const chevron = combobox.querySelector('svg');
+      if (chevron) chevron.style.transform = newState === 'open' ? 'rotate(180deg)' : '';
+    });
+  });
+
+  // =============================================
+  // PART 7: CHECKOUT/CTA BUTTONS
+  // =============================================
+
+  const ctaButtons = document.querySelectorAll('button[class*="checkout"], a[class*="checkout"], button[class*="proceed"]');
+  ctaButtons.forEach(btn => {
+    btn.style.cursor = 'pointer';
+    btn.addEventListener('click', (e) => {
+      // Don't prevent default for actual links
+      if (btn.tagName !== 'A') {
+        e.preventDefault();
+        alert('Thank you for your interest! This is a preview page.');
+      }
+    });
+  });
+
+  // =============================================
+  // PART 8: HAMBURGER MENU (top-left icon)
+  // =============================================
+
+  // Find hamburger icon in top-left area (usually a div with cursor-pointer containing SVG)
+  const topLeftElements = document.querySelectorAll('div[class*="cursor-pointer"], button');
+  let hamburgerIcon = null;
+
+  topLeftElements.forEach(el => {
+    const rect = el.getBoundingClientRect();
+    // Check if it's in the top-left header area and is small (icon-sized)
+    if (rect.top < 80 && rect.left < 150 && rect.width < 60 && rect.height < 60) {
+      const hasSvg = el.querySelector('svg');
+      const isNotCart = !el.textContent?.includes('0') && !el.closest('.Drawer');
+      if (hasSvg && isNotCart && !hamburgerIcon) {
+        hamburgerIcon = el;
+      }
+    }
+  });
+
+  // Also check for traditional hamburger selectors
+  const traditionalTriggers = document.querySelectorAll(
+    '[class*="hamburger"], [class*="menu-btn"], [aria-label*="menu"], .burger'
+  );
+  traditionalTriggers.forEach(t => { if (!hamburgerIcon) hamburgerIcon = t; });
+
+  // Find possible navigation drawer/menu
+  const findNavMenu = () => {
+    return document.querySelector(
+      '[class*="mobile-nav"], [class*="slide-menu"], [class*="nav-drawer"], ' +
+      'nav[class*="fixed"]:not(.Drawer__container), [class*="sidebar"]:not(.Drawer)'
+    );
+  };
+
+  let navMenu = findNavMenu();
+
+  if (hamburgerIcon) {
+    hamburgerIcon.style.cursor = 'pointer';
+    hamburgerIcon.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // If there's a nav menu, toggle it
+      if (navMenu) {
+        const isHidden = navMenu.style.display === 'none' || navMenu.classList.contains('hidden');
+        if (isHidden) {
+          navMenu.style.display = 'block';
+          navMenu.classList.remove('hidden');
+          if (navMenu.style.transform?.includes('translate')) {
+            navMenu.style.transform = 'translate3d(0, 0, 0)';
+          }
+        } else {
+          navMenu.style.display = 'none';
+        }
+      } else {
+        // No nav menu found - show helpful message
+        alert('Navigation menu - This is a cloned preview page.');
+      }
+    });
+  }
+
+  // =============================================
+  // PART 9: NAV DROPDOWN MENUS
+  // =============================================
+
+  document.querySelectorAll('nav li, ul.menu li').forEach(li => {
+    const submenu = li.querySelector('ul, [class*="submenu"], [class*="dropdown"]');
+    if (!submenu) return;
+
+    li.addEventListener('mouseenter', () => {
+      submenu.classList.remove('hidden', 'invisible', 'opacity-0');
+      submenu.style.display = 'block';
+    });
+    li.addEventListener('mouseleave', () => {
+      submenu.classList.add('hidden');
+      submenu.style.display = '';
+    });
+  });
+
+  // =============================================
+  // PART 10: MAKE ALL BUTTONS CLICKABLE
+  // =============================================
+
+  document.querySelectorAll('button, [role="button"], [class*="cursor-pointer"]').forEach(el => {
+    el.style.cursor = 'pointer';
   });
 })();
 </script>`;
