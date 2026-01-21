@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: wonka-clone-factory
+    runtime: node
+    plan: starter
+    buildCommand: |
+      npm install
+      npx playwright install chromium
+      npx playwright install-deps chromium
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
+      - key: PORT
+        value: "3000"
+    healthCheckPath: /
+    autoDeploy: true
