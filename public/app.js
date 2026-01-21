@@ -24,6 +24,7 @@ let currentJobId = null;
 let currentCloneId = null;
 let ws = null;
 let completedSteps = new Set();
+let lastErrorDetails = null; // Store full error details for copying
 
 // Folder/Clone management state
 let folders = [];
@@ -203,17 +204,29 @@ function renderClones() {
             </svg>
             Move to Folder
           </div>
-          <div class="clone-card-dropdown-item" onclick="downloadClone('${clone.id}', 'zip')">
+          <div class="clone-card-dropdown-item" onclick="downloadClone('${clone.id}', 'zip', false)">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
             Download ZIP
           </div>
-          <div class="clone-card-dropdown-item" onclick="downloadClone('${clone.id}', 'html')">
+          <div class="clone-card-dropdown-item" onclick="downloadClone('${clone.id}', 'zip', true)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Download ZIP (Optimized)
+          </div>
+          <div class="clone-card-dropdown-item" onclick="downloadClone('${clone.id}', 'html', false)">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
             </svg>
             Download HTML
+          </div>
+          <div class="clone-card-dropdown-item" onclick="downloadClone('${clone.id}', 'html', true)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Download HTML (Optimized)
           </div>
           <div class="clone-card-dropdown-divider"></div>
           <div class="clone-card-dropdown-item danger" onclick="openDeleteModal('${clone.id}', '${escapeHtml(clone.name)}')">
@@ -430,9 +443,13 @@ async function moveClone(cloneId, folderId) {
   }
 }
 
-function downloadClone(cloneId, format) {
+function downloadClone(cloneId, format, optimize = false) {
   document.querySelectorAll('.clone-card-dropdown').forEach(d => d.classList.remove('show'));
-  window.location.href = `/api/clones/${cloneId}/download?format=${format}`;
+  let url = `/api/clones/${cloneId}/download?format=${format}`;
+  if (optimize) {
+    url += '&optimize=true';
+  }
+  window.location.href = url;
 }
 
 // ============================================
@@ -500,6 +517,29 @@ urlInput.addEventListener('keypress', (e) => {
 });
 cloneAnotherBtn.addEventListener('click', resetUI);
 tryAgainBtn.addEventListener('click', resetUI);
+
+// Copy Error button
+const copyErrorBtn = document.getElementById('copyErrorBtn');
+const copyErrorText = document.getElementById('copyErrorText');
+if (copyErrorBtn) {
+  copyErrorBtn.addEventListener('click', async () => {
+    if (!lastErrorDetails) return;
+
+    try {
+      await navigator.clipboard.writeText(lastErrorDetails);
+      copyErrorText.textContent = 'Copied!';
+      copyErrorBtn.classList.add('bg-green-700');
+      copyErrorBtn.classList.remove('bg-gray-700');
+      setTimeout(() => {
+        copyErrorText.textContent = 'Copy Error';
+        copyErrorBtn.classList.remove('bg-green-700');
+        copyErrorBtn.classList.add('bg-gray-700');
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  });
+}
 
 // Start clone process
 async function startClone() {
@@ -695,6 +735,19 @@ function handleError(message) {
       stepEl.classList.add('error');
     }
   });
+
+  // Store full error details for copying
+  const url = urlInput.value.trim();
+  lastErrorDetails = `=== Wonka Clone Factory Error Report ===
+Date: ${new Date().toISOString()}
+URL: ${url}
+Job ID: ${currentJobId || 'N/A'}
+
+Error Message:
+${message}
+
+Browser: ${navigator.userAgent}
+==========================================`;
 
   // Show error section
   errorSection.classList.remove('hidden');
